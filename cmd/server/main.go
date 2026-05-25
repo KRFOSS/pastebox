@@ -413,6 +413,18 @@ func isTextEntry(entry *pastebox.Entry) bool {
 	n, _ := entry.File.Read(buf)
 	_, _ = entry.File.Seek(pos, io.SeekStart)
 
+	if n == 0 {
+		return true
+	}
+
+	detected := http.DetectContentType(buf[:n])
+	if strings.HasPrefix(detected, "text/") {
+		return true
+	}
+	if strings.Contains(detected, "json") {
+		return true
+	}
+
 	return looksLikeText(buf[:n])
 }
 
@@ -432,7 +444,8 @@ func looksLikeText(buf []byte) bool {
 		}
 	}
 
-	return bad == 0
+	// Allow up to 3% control characters (e.g., ANSI color codes in logs)
+	return bad*100 <= len(buf)*3
 }
 
 func requestBaseURL(r *http.Request) string {
