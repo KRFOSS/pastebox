@@ -14,12 +14,15 @@ import (
 	"net/http"
 	"os"
 	"path/filepath"
+	"regexp"
 	"strconv"
 	"strings"
 	"time"
 
 	pastebox "pastebox/internal"
 )
+
+var ansiEscapeRegex = regexp.MustCompile(`\x1b\[[0-9;]*[a-zA-Z]`)
 
 type config struct {
 	StorageMode string
@@ -354,12 +357,14 @@ func (a *app) viewHandler(w http.ResponseWriter, r *http.Request, id string) {
 			return
 		}
 
+		cleanContent := ansiEscapeRegex.ReplaceAllString(string(content), "")
+
 		w.Header().Set("Content-Type", "text/html; charset=utf-8")
 		w.WriteHeader(http.StatusOK)
 
 		_ = pasteViewHTML.Execute(w, map[string]any{
 			"ID":      entry.Meta.ID,
-			"Content": string(content),
+			"Content": cleanContent,
 		})
 		return
 	}
@@ -371,6 +376,18 @@ func (a *app) viewHandler(w http.ResponseWriter, r *http.Request, id string) {
 
 	if isTextEntry(entry) {
 		w.Header().Set("Content-Type", "text/plain; charset=utf-8")
+		if browser {
+			content, err := io.ReadAll(entry.File)
+			if err != nil {
+				http.Error(w, "파일 읽기 실패", http.StatusInternalServerError)
+				return
+			}
+			cleanContent := ansiEscapeRegex.ReplaceAllString(string(content), "")
+			if r.Method != http.MethodHead {
+				_, _ = w.Write([]byte(cleanContent))
+			}
+			return
+		}
 	} else {
 		w.Header().Set("Content-Type", contentType)
 		w.Header().Set("Content-Disposition", fmt.Sprintf(`attachment; filename="%s"`, entry.Meta.ID))
