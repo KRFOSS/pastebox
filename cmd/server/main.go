@@ -195,6 +195,12 @@ func main() {
 }
 
 func (a *app) handle(w http.ResponseWriter, r *http.Request) {
+	if r.URL.Path == "/robots.txt" {
+		w.Header().Set("Content-Type", "text/plain; charset=utf-8")
+		_, _ = w.Write([]byte("User-agent: *\nDisallow: /\n"))
+		return
+	}
+
 	if r.URL.Path == "/" {
 		switch r.Method {
 		case http.MethodGet:
@@ -272,9 +278,8 @@ func (a *app) uploadHandler(w http.ResponseWriter, r *http.Request) {
 	}
 
 	usePassword := strings.EqualFold(strings.TrimSpace(r.Header.Get("usepassword")), "true")
-	permanent := strings.EqualFold(strings.TrimSpace(r.Header.Get("data-policy")), "permanent")
 
-	meta, password, deleteToken, err := a.store.Create(reader, contentType, usePassword, permanent)
+	meta, password, deleteToken, err := a.store.Create(reader, contentType, usePassword)
 	if err != nil {
 		log.Printf("upload failed: %v", err)
 		http.Error(w, "업로드 실패", http.StatusInternalServerError)
@@ -287,7 +292,7 @@ func (a *app) uploadHandler(w http.ResponseWriter, r *http.Request) {
 
 	fmt.Fprintf(w, "주소: %s\n", url)
 
-	if !strings.EqualFold(meta.DataPolicy, "permanent") && !meta.ExpiresAt.IsZero() {
+	if !meta.ExpiresAt.IsZero() {
 		fmt.Fprintf(w, "만료일: %s\n", meta.ExpiresAt.Format(time.RFC3339))
 	}
 
@@ -1034,10 +1039,7 @@ const fallbackIndexHTML = `<!DOCTYPE html>
                     <span class="info-label">비밀번호 보호 링크</span>
                     <span class="info-value">curl -H "usepassword: true" -F "file=@secret.txt" {{ .BaseURL }}/</span>
                 </div>
-                <div class="info-item">
-                    <span class="info-label">영구 보관</span>
-                    <span class="info-value">curl -H "data-policy: permanent" -F "file=@server-logs.log" {{ .BaseURL }}/</span>
-                </div>
+
                 <div class="info-item">
                     <span class="info-label">만료 정보</span>
                     <span class="info-value">주소: {{ .BaseURL }}/AbC12

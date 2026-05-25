@@ -296,10 +296,7 @@
                     <span class="info-label">비밀번호 보호 링크</span>
                     <span class="info-value">curl -H "usepassword: true" -F "file=@secret.txt" {{ .BaseURL }}/</span>
                 </div>
-                <div class="info-item">
-                    <span class="info-label">영구 보관</span>
-                    <span class="info-value">curl -H "data-policy: permanent" -F "file=@server-logs.log" {{ .BaseURL }}/</span>
-                </div>
+
                 <div class="info-item">
                     <span class="info-label">만료 정보</span>
                     <span class="info-value">주소: {{ .BaseURL }}/AbC12

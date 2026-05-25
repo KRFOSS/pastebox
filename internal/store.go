@@ -28,7 +28,7 @@ var (
 )
 
 type Storage interface {
-	Create(r io.Reader, contentType string, usePassword bool, permanent bool) (meta Metadata, password string, deleteToken string, err error)
+	Create(r io.Reader, contentType string, usePassword bool) (meta Metadata, password string, deleteToken string, err error)
 	Open(id string, password string) (entry *Entry, err error)
 	Delete(id string, token string) error
 	CleanupExpired() error
@@ -73,7 +73,7 @@ func NewLocalStore(dataDir string, ttl time.Duration) (*LocalStore, error) {
 	}, nil
 }
 
-func (s *LocalStore) Create(r io.Reader, contentType string, usePassword bool, permanent bool) (Metadata, string, string, error) {
+func (s *LocalStore) Create(r io.Reader, contentType string, usePassword bool) (Metadata, string, string, error) {
 	id, path, err := s.reservePath()
 	if err != nil {
 		return Metadata{}, "", "", err
@@ -126,11 +126,6 @@ func (s *LocalStore) Create(r io.Reader, contentType string, usePassword bool, p
 
 	dataPolicy := "temporary"
 	expiresAt := now.Add(s.TTL)
-
-	if permanent {
-		dataPolicy = "permanent"
-		expiresAt = time.Time{}
-	}
 
 	meta := Metadata{
 		ID:              id,
@@ -502,7 +497,7 @@ func (s *DBStore) autoMigrate() error {
 	return nil
 }
 
-func (s *DBStore) Create(r io.Reader, contentType string, usePassword bool, permanent bool) (Metadata, string, string, error) {
+func (s *DBStore) Create(r io.Reader, contentType string, usePassword bool) (Metadata, string, string, error) {
 	var id string
 	var err error
 	for i := 0; i < 100; i++ {
@@ -553,10 +548,6 @@ func (s *DBStore) Create(r io.Reader, contentType string, usePassword bool, perm
 	now := time.Now().UTC()
 	dataPolicy := "temporary"
 	expiresAt := now.Add(s.TTL)
-	if permanent {
-		dataPolicy = "permanent"
-		expiresAt = time.Time{}
-	}
 
 	meta := Metadata{
 		ID:              id,
