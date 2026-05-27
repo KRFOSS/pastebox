@@ -1,0 +1,49 @@
+name: Auto Release Source
+
+on:
+  push:
+    branches:
+      - main
+      - master
+    tags:
+      - 'v*'
+  pull_request:
+    branches:
+      - main
+      - master
+
+permissions:
+  contents: write
+
+jobs:
+  build-and-release:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+
+      - name: Create Source Archive
+        run: |
+          # .git 폴더를 제외하고 소스코드를 zip과 tar.gz로 압축합니다.
+          zip -r pastebox-krfs-source.zip . -x "*.git*"
+          tar -czvf pastebox-krfs-source.tar.gz --exclude=.git .
+
+      - name: Create Release (For Tags)
+        uses: softprops/action-gh-release@v2
+        if: startsWith(github.ref, 'refs/tags/')
+        with:
+          files: |
+            pastebox-krfs-source.zip
+            pastebox-krfs-source.tar.gz
+
+      - name: Update Latest Release (For Commits & PRs)
+        uses: softprops/action-gh-release@v2
+        if: "!startsWith(github.ref, 'refs/tags/')"
+        with:
+          tag_name: latest
+          name: "Latest Build (Auto-generated)"
+          body: "자동으로 압축된 최신 소스코드입니다."
+          prerelease: true
+          files: |
+            pastebox-krfs-source.zip
+            pastebox-krfs-source.tar.gz

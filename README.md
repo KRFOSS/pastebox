@@ -3,6 +3,8 @@ curl 기반 텍스트/로그 공유 서비스
 
 ![](./preview.png)
 
+> ROKFOSS Pastebox 관련 문의는 [ROKFOSS 공식 디스코드](https://chat.krfoss.org) 또는 krfoss@krfoss.org 으로 문의하여 주시길 바랍니다. 
+
 ### 기술 스택
 | 레이어 | 스택 |
 |--------|------|
