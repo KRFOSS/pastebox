@@ -1,0 +1,249 @@
+<!doctype html>
+<html lang="ko">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>관리 대시보드 - Pastebox</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script>
+    tailwind.config = {
+      darkMode: 'class'
+    }
+  </script>
+</head>
+<body class="dark min-h-screen bg-[#0B0B0C] text-zinc-100 font-sans">
+  <!-- 상단 네비게이션 -->
+  <header class="border-b border-zinc-900 bg-zinc-950/60 backdrop-blur-md sticky top-0 z-50">
+    <div class="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between">
+      <div class="flex items-center gap-3">
+        <span class="text-xl font-bold tracking-tight text-white">Pastebox <span class="text-zinc-600 font-normal">/ Admin</span></span>
+        <span class="inline-flex items-center rounded-full bg-emerald-500/10 border border-emerald-500/20 px-2 py-0.5 text-xs font-medium text-emerald-400">
+          온라인
+        </span>
+      </div>
+      <div class="flex items-center gap-4">
+        <a href="/" target="_blank" class="text-xs text-zinc-400 hover:text-white transition">사용자 홈 ↗</a>
+        <a href="/ra/logout" class="rounded-xl border border-zinc-800 hover:border-zinc-700 bg-zinc-900 px-3.5 py-1.5 text-xs font-semibold text-zinc-300 hover:bg-zinc-800 transition">
+          로그아웃
+        </a>
+      </div>
+    </div>
+  </header>
+
+  <main class="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8 py-8">
+    <!-- 정보 카드 섹션 -->
+    <div class="grid grid-cols-1 gap-4 md:grid-cols-3 mb-8">
+      <div class="rounded-2xl border border-zinc-900 bg-zinc-950/40 p-5 backdrop-blur-sm">
+        <p class="text-xs font-medium text-zinc-500 uppercase tracking-wider">스토리지 상태</p>
+        <p class="mt-2 text-2xl font-bold tracking-tight text-white uppercase">{{ .StorageMode }} Mode</p>
+      </div>
+      <div class="rounded-2xl border border-zinc-900 bg-zinc-950/40 p-5 backdrop-blur-sm">
+        <p class="text-xs font-medium text-zinc-500 uppercase tracking-wider">전체 Paste 개수</p>
+        <p class="mt-2 text-2xl font-bold tracking-tight text-white">{{ len .Pastes }}개</p>
+      </div>
+      <div class="rounded-2xl border border-zinc-900 bg-zinc-950/40 p-5 backdrop-blur-sm">
+        <p class="text-xs font-medium text-zinc-500 uppercase tracking-wider mb-2">업로드 용량 제한 설정</p>
+        <form action="/ra/limit" method="POST" class="flex items-center gap-2">
+          <input type="number" name="size" value="{{ .CurrentLimitMB }}" min="1" step="0.1" class="w-20 rounded-lg border border-zinc-800 bg-zinc-900 px-2 py-1 text-sm text-white outline-none focus:border-zinc-700" required>
+          <select name="unit" class="rounded-lg border border-zinc-800 bg-zinc-900 px-2 py-1 text-sm text-white outline-none focus:border-zinc-700">
+            <option value="KB">KB</option>
+            <option value="MB" selected>MB</option>
+            <option value="GB">GB</option>
+          </select>
+          <button type="submit" class="rounded-lg bg-zinc-100 hover:bg-white text-black px-3 py-1 text-sm font-semibold transition">적용</button>
+        </form>
+      </div>
+    </div>
+
+    <!-- 액션 제어 패널 -->
+    <div class="mb-4 flex items-center justify-between gap-4">
+      <div class="flex items-center gap-2">
+        <button
+          onclick="deleteSelected()"
+          class="rounded-xl bg-red-500/10 border border-red-500/20 hover:border-red-500/40 px-3.5 py-2 text-xs font-semibold text-red-400 hover:bg-red-500/20 transition disabled:opacity-50 disabled:pointer-events-none"
+          id="btnDeleteSelected"
+          disabled
+        >
+          선택 삭제
+        </button>
+        <button
+          onclick="confirmDeleteAll()"
+          class="rounded-xl bg-zinc-900 border border-zinc-800 hover:border-red-900/60 px-3.5 py-2 text-xs font-semibold text-zinc-400 hover:text-red-400 hover:bg-red-950/20 transition"
+        >
+          전체 삭제
+        </button>
+      </div>
+      <div class="text-xs text-zinc-500">
+        * 모든 저장 데이터는 즉시 파기 가능합니다.
+      </div>
+    </div>
+
+    <!-- 데이터 테이블 -->
+    <div class="overflow-hidden rounded-2xl border border-zinc-900 bg-zinc-950/20 backdrop-blur-sm">
+      <div class="overflow-x-auto">
+        <table class="min-w-full divide-y divide-zinc-900 text-left text-sm">
+          <thead class="bg-zinc-950/60 text-xs font-semibold text-zinc-400 uppercase tracking-wider">
+            <tr>
+              <th scope="col" class="w-12 px-6 py-4">
+                <input
+                  type="checkbox"
+                  id="selectAll"
+                  onclick="toggleAll(this)"
+                  class="h-4 w-4 rounded border-zinc-800 bg-zinc-900 text-zinc-600 focus:ring-0 focus:ring-offset-0 focus:outline-none"
+                >
+              </th>
+              <th scope="col" class="px-6 py-4">ID / 링크</th>
+              <th scope="col" class="px-6 py-4">콘텐츠 타입</th>
+              <th scope="col" class="px-6 py-4">파일 크기</th>
+              <th scope="col" class="px-6 py-4">생성일</th>
+              <th scope="col" class="px-6 py-4">만료일</th>
+            </tr>
+          </thead>
+          <tbody class="divide-y divide-zinc-900/60 bg-transparent text-zinc-300">
+            {{ range .Pastes }}
+            <tr class="hover:bg-zinc-900/20 transition-colors">
+              <td class="px-6 py-4">
+                <input
+                  type="checkbox"
+                  name="ids"
+                  value="{{ .ID }}"
+                  onclick="updateSelection()"
+                  class="h-4 w-4 rounded border-zinc-800 bg-zinc-900 text-zinc-600 focus:ring-0 focus:ring-offset-0 focus:outline-none"
+                >
+              </td>
+              <td class="px-6 py-4 font-mono font-medium text-zinc-100">
+                <a href="/{{ .ID }}" target="_blank" class="hover:underline text-zinc-200 hover:text-white transition">
+                  {{ .ID }} ↗
+                </a>
+              </td>
+              <td class="px-6 py-4 text-xs text-zinc-400">{{ .ContentType }}</td>
+              <td class="px-6 py-4 text-xs">{{ .Size }} Bytes</td>
+              <td class="px-6 py-4 text-xs text-zinc-500">{{ .CreatedAt.Local.Format "2006-01-02 15:04:05" }}</td>
+              <td class="px-6 py-4 text-xs text-zinc-500">
+                {{ if .ExpiresAt.IsZero }}
+                -
+                {{ else }}
+                {{ .ExpiresAt.Local.Format "2006-01-02 15:04:05" }}
+                {{ end }}
+              </td>
+            </tr>
+            {{ else }}
+            <tr>
+              <td colspan="7" class="px-6 py-12 text-center text-zinc-500 text-xs">
+                업로드된 Paste가 없습니다.
+              </td>
+            </tr>
+            {{ end }}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </main>
+
+  <!-- 확인 모달 -->
+  <div id="confirmModal" class="hidden fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm">
+    <div class="w-full max-w-sm rounded-2xl border border-zinc-800 bg-zinc-900 p-6 shadow-2xl animate-in fade-in zoom-in-95 duration-150">
+      <h3 class="text-base font-semibold text-white" id="modalTitle">정말로 삭제하시겠습니까?</h3>
+      <p class="mt-2 text-xs text-zinc-400" id="modalDescription">삭제된 데이터는 절대 복구할 수 없습니다.</p>
+      <div class="mt-6 flex justify-end gap-3">
+        <button
+          onclick="closeModal()"
+          class="rounded-xl bg-zinc-800 border border-zinc-700 px-4 py-2 text-xs font-semibold text-zinc-300 hover:bg-zinc-700 transition"
+        >
+          취소
+        </button>
+        <button
+          id="modalConfirmBtn"
+          class="rounded-xl bg-red-600 hover:bg-red-500 px-4 py-2 text-xs font-semibold text-white transition active:scale-95"
+        >
+          삭제하기
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <form id="actionForm" method="POST" class="hidden">
+    <input type="hidden" id="actionFormIds" name="ids">
+  </form>
+
+  <script>
+    let activeAction = null;
+
+    function toggleAll(master) {
+      const checkboxes = document.getElementsByName('ids');
+      for (let cb of checkboxes) {
+        cb.checked = master.checked;
+      }
+      updateSelection();
+    }
+
+    function updateSelection() {
+      const checkboxes = document.getElementsByName('ids');
+      let count = 0;
+      for (let cb of checkboxes) {
+        if (cb.checked) count++;
+      }
+      const btn = document.getElementById('btnDeleteSelected');
+      btn.disabled = count === 0;
+    }
+
+    function getSelectedIds() {
+      const checkboxes = document.getElementsByName('ids');
+      const ids = [];
+      for (let cb of checkboxes) {
+        if (cb.checked) ids.push(cb.value);
+      }
+      return ids;
+    }
+
+    function deleteSelected() {
+      const ids = getSelectedIds();
+      if (ids.length === 0) return;
+
+      showModal(
+        '선택한 ' + ids.length + '개의 항목을 삭제합니까?',
+        '삭제하면 서버에서 데이터 파일 및 DB 기록이 완전히 지워집니다.',
+        function() {
+          const form = document.getElementById('actionForm');
+          form.action = '/ra/delete';
+          document.getElementById('actionFormIds').value = ids.join(',');
+          form.submit();
+        }
+      );
+    }
+
+    function confirmDeleteAll() {
+      showModal(
+        '서버의 모든 Paste를 삭제합니까?',
+        '경고: 모든 업로드 데이터가 완전히 영구 파기됩니다. 이 작업은 되돌릴 수 없습니다.',
+        function() {
+          const form = document.getElementById('actionForm');
+          form.action = '/ra/delete-all';
+          form.submit();
+        }
+      );
+    }
+
+    function showModal(title, desc, confirmCallback) {
+      document.getElementById('modalTitle').innerText = title;
+      document.getElementById('modalDescription').innerText = desc;
+      const confirmBtn = document.getElementById('modalConfirmBtn');
+      
+      // 기존 이벤트 제거 및 새 이벤트 바인딩
+      const newConfirmBtn = confirmBtn.cloneNode(true);
+      confirmBtn.parentNode.replaceChild(newConfirmBtn, confirmBtn);
+      
+      newConfirmBtn.addEventListener('click', function() {
+        closeModal();
+        confirmCallback();
+      });
+
+      document.getElementById('confirmModal').classList.remove('hidden');
+    }
+
+    function closeModal() {
+      document.getElementById('confirmModal').classList.add('hidden');
+    }
+  </script>
+</body>
+</html>

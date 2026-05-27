@@ -22,7 +22,7 @@ func TestStoreBasic(t *testing.T) {
 	}
 
 	content := []byte("hello world")
-	meta, password, deleteToken, err := store.Create(bytes.NewReader(content), "text/plain", true)
+	meta, password, deleteToken, err := store.Create(bytes.NewReader(content), "text/plain", true, false)
 	if err != nil {
 		t.Fatalf("failed to create entry: %v", err)
 	}
@@ -59,6 +59,7 @@ func TestStoreBasic(t *testing.T) {
 	}
 
 	// 삭제
+	entry.File.Close()
 	err = store.Delete(meta.ID, deleteToken)
 	if err != nil {
 		t.Fatalf("failed to delete entry: %v", err)
@@ -78,7 +79,7 @@ func TestStoreConcurrency(t *testing.T) {
 	}
 	defer os.RemoveAll(tempDir)
 
-	store, err := NewLocalStore(tempDir, 10*time.Millisecond) // 짧은 만료 기한
+	store, err := NewLocalStore(tempDir, 10*time.Millisecond)
 	if err != nil {
 		t.Fatalf("failed to create store: %v", err)
 	}
@@ -88,21 +89,18 @@ func TestStoreConcurrency(t *testing.T) {
 
 	var wg sync.WaitGroup
 
-	// 동시성 생성, 조회, 삭제 수행
 	for i := 0; i < goroutines; i++ {
 		wg.Add(1)
 		go func(gId int) {
 			defer wg.Done()
 			for j := 0; j < iterations; j++ {
-				// 1. 생성
 				content := []byte("concurrency test data")
-				meta, password, deleteToken, err := store.Create(bytes.NewReader(content), "text/plain", true)
+				meta, password, deleteToken, err := store.Create(bytes.NewReader(content), "text/plain", true, false)
 				if err != nil {
 					t.Errorf("[g:%d, i:%d] Create failed: %v", gId, j, err)
 					return
 				}
 
-				// 2. 동시에 여러 번 조회
 				var openWg sync.WaitGroup
 				for k := 0; k < 5; k++ {
 					openWg.Add(1)
@@ -116,7 +114,6 @@ func TestStoreConcurrency(t *testing.T) {
 				}
 				openWg.Wait()
 
-				// 3. 삭제
 				if j%2 == 0 {
 					err = store.Delete(meta.ID, deleteToken)
 					if err != nil && err != ErrNotFound {
@@ -127,7 +124,6 @@ func TestStoreConcurrency(t *testing.T) {
 		}(i)
 	}
 
-	// 동시에 만료 정리(CleanupExpired) 처리
 	stopCleanup := make(chan struct{})
 	go func() {
 		for {
@@ -157,17 +153,15 @@ func TestStoreAdmin(t *testing.T) {
 		t.Fatalf("failed to create store: %v", err)
 	}
 
-	// 1. Create two pastes
-	meta1, _, _, err := store.Create(bytes.NewReader([]byte("paste 1")), "text/plain", false)
+	meta1, _, _, err := store.Create(bytes.NewReader([]byte("paste 1")), "text/plain", false, false)
 	if err != nil {
 		t.Fatalf("failed to create entry 1: %v", err)
 	}
-	meta2, _, _, err := store.Create(bytes.NewReader([]byte("paste 2")), "text/plain", false)
+	meta2, _, _, err := store.Create(bytes.NewReader([]byte("paste 2")), "text/plain", false, false)
 	if err != nil {
 		t.Fatalf("failed to create entry 2: %v", err)
 	}
 
-	// 2. List pastes and verify
 	list, err := store.List()
 	if err != nil {
 		t.Fatalf("failed to list pastes: %v", err)
@@ -176,13 +170,11 @@ func TestStoreAdmin(t *testing.T) {
 		t.Errorf("expected 2 pastes, got %d", len(list))
 	}
 
-	// 3. ForceDelete one paste
 	err = store.ForceDelete(meta1.ID)
 	if err != nil {
 		t.Fatalf("failed to force delete paste 1: %v", err)
 	}
 
-	// Check listing again
 	list, err = store.List()
 	if err != nil {
 		t.Fatalf("failed to list pastes after delete: %v", err)
@@ -194,7 +186,6 @@ func TestStoreAdmin(t *testing.T) {
 		t.Errorf("expected remaining paste to be %s, got %s", meta2.ID, list[0].ID)
 	}
 
-	// 4. DeleteAll pastes
 	err = store.DeleteAll()
 	if err != nil {
 		t.Fatalf("failed to delete all: %v", err)
