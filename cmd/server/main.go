@@ -1000,6 +1000,8 @@ var pasteViewHTML = template.Must(template.New("paste").Parse(`<!DOCTYPE html>
         let detectedLanguage = 'plaintext';
         let languageDetected = false;
         let wordWrapEnabled = false;
+        const isSmallFile = lines.length <= 3000;
+        let staticRendered = false;
 
         function detectLang() {
             if (typeof hljs !== 'undefined' && !languageDetected) {
@@ -1014,6 +1016,32 @@ var pasteViewHTML = template.Must(template.New("paste").Parse(`<!DOCTYPE html>
             if (wordWrapEnabled) return; // 가상 스크롤 중지
 
             const scrollTop = codeArea.scrollTop;
+
+            if (isSmallFile) {
+                if (!staticRendered) {
+                    detectLang();
+                    if (typeof hljs !== 'undefined' && detectedLanguage !== 'plaintext') {
+                        try {
+                            viewport.innerHTML = hljs.highlight(rawText, { language: detectedLanguage, ignoreIllegals: true }).value;
+                        } catch (e) {
+                            viewport.textContent = rawText;
+                        }
+                    } else {
+                        viewport.textContent = rawText;
+                    }
+                    let numStr = '';
+                    for (let i = 1; i <= lines.length; i++) {
+                        numStr += i + '\n';
+                    }
+                    lineNumbersDiv.textContent = numStr;
+                    staticRendered = true;
+                }
+                
+                viewport.style.transform = "translate3d(0, 0, 0)";
+                lineNumbersDiv.style.transform = "translate3d(0, " + (-scrollTop) + "px, 0)";
+                return;
+            }
+
             const containerHeight = codeArea.clientHeight;
 
             let startIdx = Math.floor((scrollTop - paddingTop) / lineHeight) - 5;
