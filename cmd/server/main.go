@@ -205,11 +205,18 @@ func (a *app) handle(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	if r.URL.Path == "/" {
+	if r.URL.Path == "/" || r.URL.Path == "/temp" {
 		switch r.Method {
 		case http.MethodGet:
+			if r.URL.Path == "/temp" {
+				http.Redirect(w, r, "/", http.StatusTemporaryRedirect)
+				return
+			}
 			a.indexHandler(w, r)
 		case http.MethodPost, http.MethodPut:
+			if r.URL.Path == "/temp" {
+				r.Header.Set("data-policy", "once")
+			}
 			a.uploadHandler(w, r)
 		default:
 			http.Error(w, "허용되지 않은 메서드입니다.", http.StatusMethodNotAllowed)
@@ -311,10 +318,36 @@ func (a *app) uploadHandler(w http.ResponseWriter, r *http.Request) {
 	reader = io.MultiReader(bytes.NewReader(buf[:n]), reader)
 
 	usePassword := strings.EqualFold(strings.TrimSpace(r.Header.Get("usepassword")), "true")
+	
+	policy := r.Header.Get("data-policy")
+	if policy == "" {
+		policy = r.FormValue("data-policy")
+	}
+	once := strings.EqualFold(strings.TrimSpace(policy), "once")
 
-	meta, password, deleteToken, err := a.store.Create(reader, contentType, usePassword)
+	meta, password, deleteToken, err := a.store.Create(reader, contentType, usePassword, once)
 	if err != nil {
 		log.Printf("upload failed: %v", err)
+		
+		var maxBytesError *http.MaxBytesError
+		isTooLarge := false
+		if errors.As(err, &maxBytesError) {
+			isTooLarge = true
+		} else if strings.Contains(err.Error(), "request body too large") || strings.Contains(err.Error(), "MaxBytesError") || strings.Contains(err.Error(), "exceeds maximum") {
+			isTooLarge = true
+		}
+		
+		if isTooLarge {
+			maxMB := float64(maxUploadSize) / (1024 * 1024)
+			if r.ContentLength > 0 {
+				reqMB := float64(r.ContentLength) / (1024 * 1024)
+				http.Error(w, fmt.Sprintf("업로드 실패: 현재 %.1fMB 크기의 업로드를 시도했습니다.\n정책상 %.1fMB까지만 업로드가 허용됩니다.", reqMB, maxMB), http.StatusRequestEntityTooLarge)
+			} else {
+				http.Error(w, fmt.Sprintf("업로드 실패: 허용된 최대 용량(%.1fMB)을 초과했습니다.", maxMB), http.StatusRequestEntityTooLarge)
+			}
+			return
+		}
+
 		http.Error(w, "업로드 실패", http.StatusInternalServerError)
 		return
 	}
@@ -560,6 +593,8 @@ var pasteViewHTML = template.Must(template.New("paste").Parse(`<!DOCTYPE html>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>{{ .ID }} - Pastebox</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.11.1/styles/github-dark.min.css">
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.11.1/highlight.min.js"></script>
     <style>
         :root {
             --focus-ring: #06b6d4;
@@ -624,12 +659,12 @@ var pasteViewHTML = template.Must(template.New("paste").Parse(`<!DOCTYPE html>
             flex-direction: column;
             justify-content: center;
             align-items: center;
-            padding: 140px 20px 80px;
+            padding: 100px 32px 32px;
             box-sizing: border-box;
         }
 
         .content-wrapper {
-            max-width: 1440px;
+            max-width: 100%;
             width: 100%;
         }
 
@@ -693,7 +728,7 @@ var pasteViewHTML = template.Must(template.New("paste").Parse(`<!DOCTYPE html>
             border-radius: 10px;
             border: 1px solid rgba(84, 84, 88, 0.2);
             overflow: hidden;
-            height: 80vh;
+            height: calc(100vh - 200px);
             font-family: ui-monospace, SFMono-Regular, SF Pro Icons, "SF Mono", Menlo, Monaco, Consolas, monospace;
             font-size: 14px;
             line-height: 22px; /* Fixed line height */
@@ -919,6 +954,9 @@ var pasteViewHTML = template.Must(template.New("paste").Parse(`<!DOCTYPE html>
         const totalHeight = lines.length * lineHeight + paddingTop + paddingBottom;
         spacer.style.height = totalHeight + 'px';
 
+        let detectedLanguage = 'plaintext';
+        let languageDetected = false;
+
         function render() {
             const scrollTop = codeArea.scrollTop;
             const containerHeight = codeArea.clientHeight;
@@ -930,7 +968,28 @@ var pasteViewHTML = template.Must(template.New("paste").Parse(`<!DOCTYPE html>
             if (endIdx > lines.length) endIdx = lines.length;
 
             const visibleLines = lines.slice(startIdx, endIdx);
-            viewport.textContent = visibleLines.join('\n');
+            const visibleText = visibleLines.join('\n');
+            
+            if (typeof hljs !== 'undefined') {
+                if (!languageDetected) {
+                    const sampleText = lines.slice(0, 100).join('\n');
+                    const result = hljs.highlightAuto(sampleText);
+                    detectedLanguage = result.language || 'plaintext';
+                    languageDetected = true;
+                }
+                
+                if (detectedLanguage !== 'plaintext') {
+                    try {
+                        viewport.innerHTML = hljs.highlight(visibleText, { language: detectedLanguage, ignoreIllegals: true }).value;
+                    } catch (e) {
+                        viewport.textContent = visibleText;
+                    }
+                } else {
+                    viewport.textContent = visibleText;
+                }
+            } else {
+                viewport.textContent = visibleText;
+            }
             
             const offsetTop = paddingTop + startIdx * lineHeight;
             viewport.style.transform = "translate3d(0, " + offsetTop + "px, 0)";
@@ -1330,6 +1389,10 @@ const fallbackIndexHTML = `<!DOCTYPE html>
                 <div class="info-item">
                     <span class="info-label">비밀번호 보호 링크</span>
                     <span class="info-value">curl -H "usepassword: true" -F "file=@secret.txt" {{ .BaseURL }}/</span>
+                </div>
+                <div class="info-item">
+                    <span class="info-label">1회 열람 후 파기</span>
+                    <span class="info-value">ifconfig | curl -X POST --data-binary @- {{ .BaseURL }}/temp</span>
                 </div>
 
                 <div class="info-item">

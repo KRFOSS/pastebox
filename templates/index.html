@@ -354,6 +354,10 @@
                     <span class="info-label">비밀번호 보호 링크</span>
                     <span class="info-value">curl -H "usepassword: true" -F "file=@secret.txt" {{ .BaseURL }}/</span>
                 </div>
+                <div class="info-item">
+                    <span class="info-label">1회 열람 후 파기</span>
+                    <span class="info-value">ifconfig | curl -X POST --data-binary @- {{ .BaseURL }}/temp</span>
+                </div>
 
                 <div class="info-item">
                     <span class="info-label">만료 정보</span>
