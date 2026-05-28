@@ -23,6 +23,8 @@ func main() {
 	dbCompress := "zstd"
 	adminToken := ""
 	maxUploadSizeMB := int64(10)
+	rateLimitPerSec := getenvFloat("RATE_LIMIT_PER_SEC", 2)
+	rateBurst := getenvFloat("RATE_LIMIT_BURST", 10)
 
 	cfg, err := loadConfig("config.conf")
 	if err == nil {
@@ -48,6 +50,12 @@ func main() {
 		adminToken = cfg.AdminToken
 		if cfg.MaxUploadSizeMB > 0 {
 			maxUploadSizeMB = cfg.MaxUploadSizeMB
+		}
+		if cfg.RateLimitPerSec > 0 {
+			rateLimitPerSec = cfg.RateLimitPerSec
+		}
+		if cfg.RateBurst > 0 {
+			rateBurst = cfg.RateBurst
 		}
 		log.Println("설정 파일(config.conf)이 성공적으로 로드되었습니다.")
 	} else {
@@ -101,7 +109,7 @@ func main() {
 		}
 	}()
 
-	uploadLimiter := newRateLimiter(2, 10)
+	uploadLimiter := newRateLimiter(rateLimitPerSec, rateBurst)
 
 	mux := http.NewServeMux()
 	mux.HandleFunc("/", uploadLimiter.middleware(a.handle))

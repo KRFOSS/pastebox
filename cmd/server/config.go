@@ -21,6 +21,8 @@ type config struct {
 	DBCompress      string
 	AdminToken      string
 	MaxUploadSizeMB int64
+	RateLimitPerSec float64
+	RateBurst       float64
 }
 
 func loadConfig(path string) (*config, error) {
@@ -37,6 +39,8 @@ func loadConfig(path string) (*config, error) {
 		ExpireDays:      30,
 		DBCompress:      "zstd",
 		MaxUploadSizeMB: 10,
+		RateLimitPerSec: 2,
+		RateBurst:       10,
 	}
 
 	scanner := bufio.NewScanner(file)
@@ -75,6 +79,14 @@ func loadConfig(path string) (*config, error) {
 			if sz, err := strconv.ParseInt(val, 10, 64); err == nil {
 				cfg.MaxUploadSizeMB = sz
 			}
+		case "RATE_LIMIT_PER_SEC":
+			if v, err := strconv.ParseFloat(val, 64); err == nil && v > 0 {
+				cfg.RateLimitPerSec = v
+			}
+		case "RATE_LIMIT_BURST":
+			if v, err := strconv.ParseFloat(val, 64); err == nil && v > 0 {
+				cfg.RateBurst = v
+			}
 		}
 	}
 
@@ -105,6 +117,20 @@ func getenvInt(key string, fallback int) int {
 	}
 
 	return n
+}
+
+func getenvFloat(key string, fallback float64) float64 {
+	value := strings.TrimSpace(os.Getenv(key))
+	if value == "" {
+		return fallback
+	}
+
+	f, err := strconv.ParseFloat(value, 64)
+	if err != nil || f <= 0 {
+		return fallback
+	}
+
+	return f
 }
 
 func ensureAdminToken(path string, cfg *config) error {
