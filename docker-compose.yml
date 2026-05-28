@@ -5,8 +5,7 @@ services:
     image: ghcr.io/krfoss/pastebox:latest
     container_name: pastebox
     restart: unless-stopped
-    ports:
-      - "8080:8080"
+    network_mode: "host"
     environment:
       DATA_DIR: "/paste-data"
       LISTEN_ADDR: ":8080"
