@@ -348,11 +348,11 @@
                 </div>
                 <div class="info-item">
                     <span class="info-label">텍스트 파일 업로드</span>
-                    <span class="info-value">curl -F "file=@test.txt" {{ .BaseURL }}/</span>
+                    <span class="info-value">curl -v --data-binary @test.txt {{ .BaseURL }}/</span>
                 </div>
                 <div class="info-item">
                     <span class="info-label">비밀번호 보호 링크</span>
-                    <span class="info-value">curl -H "usepassword: true" -F "file=@secret.txt" {{ .BaseURL }}/</span>
+                    <span class="info-value">curl -H "usepassword: true" --data-binary @secret.txt {{ .BaseURL }}/</span>
                 </div>
                 <div class="info-item">
                     <span class="info-label">1회 열람 후 파기</span>
@@ -405,7 +405,7 @@
         }
 
         function copyExample(btn) {
-            const text = 'curl -F "file=@test.txt" {{ .BaseURL }}/';
+            const text = 'curl -v --data-binary @test.txt {{ .BaseURL }}/';
             navigator.clipboard.writeText(text).then(() => {
                 const originalText = btn.innerText;
                 btn.innerText = "복사 완료";

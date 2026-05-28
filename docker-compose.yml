@@ -1,7 +1,8 @@
 services:
   pastebox:
-    build: .
-    image: pastebox:latest
+    # 소스 코드에서 직접 빌드하려면 아래 build 주석을 해제하세요.
+    # build: .
+    image: ghcr.io/krfoss/pastebox:latest
     container_name: pastebox
     restart: unless-stopped
     ports:

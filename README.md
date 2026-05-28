@@ -28,14 +28,40 @@ curl 기반 텍스트/로그 공유 서비스
    cp config.example.conf config.conf
    ```
 3. 로컬 파일 저장소 모드로 가볍게 실행할지, 대규모 처리를 위해 MariaDB 모드를 활성화할지 `config.conf`를 수정하여 선택합니다.
-4. 로컬에서 실행합니다:
+4. **직접 컴파일하여 실행 (Go 환경)**
    ```bash
    go build -o pastebox ./cmd/server
    ./pastebox
    ```
-   *(또는 docker compose 빌드를 원하시면 `docker compose up -d --build`로 실행할 수 있습니다.)*
+   
+   **또는 Docker (GHCR 사전 빌드 이미지)로 실행**
+   소스 코드를 직접 빌드할 필요 없이 GitHub Packages에 등록된 공식 컨테이너를 즉시 끌어와서 실행할 수 있습니다.
+   ```bash
+   docker run -d --name pastebox \
+     -p 8080:8080 \
+     -v $(pwd)/data:/paste-data \
+     -v $(pwd)/config.conf:/app/config.conf \
+     ghcr.io/krfoss/pastebox:latest
+   ```
+   *(Docker Compose를 사용하시려면 `docker-compose.yml` 파일의 `image` 부분을 `ghcr.io/krfoss/pastebox:latest`로 수정 후 `docker compose up -d`를 입력하세요.)*
+
 5. `http://localhost:8080`을 브라우저에서 접속하거나 `curl`을 사용하여 텍스트나 로그를 업로드하세요.
 
+### 어떻게 업데이트하나요?
+기존에 설치된 Pastebox를 최신 버전으로 업데이트하려면 아래 방법을 사용하세요.
+
+**도커(Docker Compose) 사용자:**
+```bash
+docker compose pull
+docker compose up -d
+```
+
+**직접 컴파일(Go Build) 사용자:**
+```bash
+git pull
+go build -o pastebox ./cmd/server
+# 이후 사용 중인 프로세스(systemd 등) 재시작
+```
 ---
 
 ### 설정 가이드 (`config.conf`)
@@ -80,15 +106,15 @@ ADMIN_TOKEN=
    ifconfig | curl -X POST --data-binary @- http://localhost:8080/
    ```
    
-4. **텍스트 파일 업로드**: `multipart/form-data` 형식의 텍스트 파일 업로드 지원
+4. **텍스트 파일 업로드**: `multipart/form-data` 대신 대용량 처리에 유리한 바이너리 직접 전송 방식 지원
    ```bash
-   curl -F "file=@test.txt" http://localhost:8080/
+   curl -v --data-binary @test.txt http://localhost:8080/
    ```
 
-5. **비밀번호 링크**: `usepassword: true` 헤더를 사용한 비공개 업로드 링크생성 지원 (헤더 사용시 **영문(대+소문자) + 숫자** 조합으로 생성된 8자리 비밀번호 발급 및 `?password=...` 혹은 `paste-password: ...` 헤더로 접근 가능)
+5. **비밀번호 보호 링크**: `usepassword: true` 헤더를 사용한 비공개 업로드 링크생성 지원 (헤더 사용시 **영문(대+소문자) + 숫자** 조합으로 생성된 8자리 비밀번호 발급 및 `?password=...` 혹은 `paste-password: ...` 헤더로 접근 가능)
    ```bash
    # 비밀번호 링크 생성:
-   curl -H "usepassword: true" -F "file=@secret.txt" http://localhost:8080/
+   curl -H "usepassword: true" -v --data-binary @secret.txt http://localhost:8080/
    
    # 데이터 확인:
    curl -H "paste-password: RANDOM_PASSWORD" http://localhost:8080/RANDOM_CODE
