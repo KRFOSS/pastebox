@@ -258,7 +258,7 @@ func (a *app) viewHandler(w http.ResponseWriter, r *http.Request, id string) {
 		
 		_, err := a.store.Stat(id, password)
 		if err != nil {
-			if errors.Is(err, pastebox.ErrInvalidPassword) || errors.Is(err, pastebox.ErrUnauthorizedPassword) {
+			if errors.Is(err, pastebox.ErrInvalidPassword) {
 				_ = a.password.Execute(w, map[string]any{
 					"Action": "?",
 					"Error":  "비밀번호가 틀렸습니다.",
@@ -299,7 +299,7 @@ func (a *app) viewHandler(w http.ResponseWriter, r *http.Request, id string) {
 	if !raw && browser {
 		meta, err := a.store.Stat(id, password)
 		if err != nil {
-			if errors.Is(err, pastebox.ErrInvalidPassword) || errors.Is(err, pastebox.ErrUnauthorizedPassword) {
+			if errors.Is(err, pastebox.ErrInvalidPassword) {
 				w.WriteHeader(http.StatusUnauthorized)
 				_ = a.password.Execute(w, map[string]any{
 					"Action": "?",
@@ -329,7 +329,7 @@ func (a *app) viewHandler(w http.ResponseWriter, r *http.Request, id string) {
 
 	entry, err := a.store.Open(id, password)
 	if err != nil {
-		if errors.Is(err, pastebox.ErrInvalidPassword) || errors.Is(err, pastebox.ErrUnauthorizedPassword) {
+		if errors.Is(err, pastebox.ErrInvalidPassword) {
 			w.WriteHeader(http.StatusUnauthorized)
 			if browser {
 				_ = a.password.Execute(w, map[string]any{
