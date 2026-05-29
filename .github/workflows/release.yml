@@ -21,7 +21,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: 레포지토리 코드 가져오기 (Checkout)
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
 
       - name: 소스코드 압축 파일 생성
         run: |
@@ -34,7 +34,7 @@ jobs:
           mv /tmp/pastebox-krfs-source.tar.gz .
 
       - name: 공식 릴리즈 생성 (태그 전용)
-        uses: softprops/action-gh-release@v2
+        uses: softprops/action-gh-release@v3
         if: startsWith(github.ref, 'refs/tags/')
         with:
           files: |
@@ -42,7 +42,7 @@ jobs:
             pastebox-krfs-source.tar.gz
 
       - name: 최신 빌드 업데이트 (커밋 및 PR 전용)
-        uses: softprops/action-gh-release@v2
+        uses: softprops/action-gh-release@v3
         if: "!startsWith(github.ref, 'refs/tags/')"
         with:
           tag_name: latest

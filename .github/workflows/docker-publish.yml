@@ -22,7 +22,7 @@ jobs:
 
     steps:
       - name: 레포지토리 코드 가져오기 (Checkout)
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
 
       - name: 도커 Buildx 환경 설정
         uses: docker/setup-buildx-action@v3
