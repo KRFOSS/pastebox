@@ -10,9 +10,10 @@ import (
 //go:embed templates/*.html
 var embeddedTemplates embed.FS
 
-func loadTemplates() (index *template.Template, paste *template.Template, adminLogin *template.Template, adminDashboard *template.Template) {
+func loadTemplates() (index *template.Template, paste *template.Template, password *template.Template, adminLogin *template.Template, adminDashboard *template.Template) {
 	index = loadOneTemplate("index.html", "templates/index.html")
 	paste = loadOneTemplate("paste.html", "templates/paste.html")
+	password = loadOneTemplate("password.html", "templates/password.html")
 	adminLogin = loadOneTemplate("admin_login.html", "templates/admin_login.html")
 	adminDashboard = loadOneTemplate("admin_dashboard.html", "templates/admin_dashboard.html")
 	return

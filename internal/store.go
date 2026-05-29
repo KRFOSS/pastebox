@@ -5,6 +5,7 @@ import (
 	"compress/gzip"
 	"crypto/rand"
 	"crypto/sha256"
+	"crypto/subtle"
 	"database/sql"
 	"encoding/hex"
 	"encoding/json"
@@ -19,6 +20,7 @@ import (
 
 	_ "github.com/go-sql-driver/mysql"
 	"github.com/klauspost/compress/zstd"
+	"golang.org/x/crypto/bcrypt"
 )
 
 var (
@@ -188,7 +190,7 @@ func (s *LocalStore) Open(id string, password string) (*Entry, error) {
 	}
 
 	if meta.PasswordHash != "" {
-		if strings.TrimSpace(password) == "" || hashSecret(password) != meta.PasswordHash {
+		if strings.TrimSpace(password) == "" || !checkSecret(password, meta.PasswordHash) {
 			return nil, ErrInvalidPassword
 		}
 	}
@@ -235,7 +237,7 @@ func (s *LocalStore) Stat(id string, password string) (Metadata, error) {
 	}
 
 	if meta.PasswordHash != "" {
-		if strings.TrimSpace(password) == "" || hashSecret(password) != meta.PasswordHash {
+		if strings.TrimSpace(password) == "" || !checkSecret(password, meta.PasswordHash) {
 			return Metadata{}, ErrInvalidPassword
 		}
 	}
@@ -267,7 +269,7 @@ func (s *LocalStore) Delete(id string, token string) error {
 		return ErrNotFound
 	}
 
-	if meta.DeleteTokenHash == "" || hashSecret(token) != meta.DeleteTokenHash {
+	if meta.DeleteTokenHash == "" || !checkSecret(token, meta.DeleteTokenHash) {
 		return ErrInvalidDeleteToken
 	}
 
@@ -676,7 +678,7 @@ func (s *DBStore) Open(id string, password string) (*Entry, error) {
 	}
 
 	if meta.PasswordHash != "" {
-		if strings.TrimSpace(password) == "" || hashSecret(password) != meta.PasswordHash {
+		if strings.TrimSpace(password) == "" || !checkSecret(password, meta.PasswordHash) {
 			return nil, ErrInvalidPassword
 		}
 	}
@@ -739,7 +741,7 @@ func (s *DBStore) Stat(id string, password string) (Metadata, error) {
 	}
 
 	if meta.PasswordHash != "" {
-		if strings.TrimSpace(password) == "" || hashSecret(password) != meta.PasswordHash {
+		if strings.TrimSpace(password) == "" || !checkSecret(password, meta.PasswordHash) {
 			return Metadata{}, ErrInvalidPassword
 		}
 	}
@@ -766,7 +768,7 @@ func (s *DBStore) Delete(id string, token string) error {
 		return err
 	}
 
-	if deleteTokenHash == "" || hashSecret(token) != deleteTokenHash {
+	if deleteTokenHash == "" || !checkSecret(token, deleteTokenHash) {
 		return ErrInvalidDeleteToken
 	}
 
@@ -1006,8 +1008,24 @@ func validID(id string) bool {
 }
 
 func hashSecret(secret string) string {
+	hash, err := bcrypt.GenerateFromPassword([]byte(secret), bcrypt.DefaultCost)
+	if err != nil {
+		// Fallback to SHA-256 on unexpected bcrypt failure
+		sum := sha256.Sum256([]byte(secret))
+		return hex.EncodeToString(sum[:])
+	}
+	return string(hash)
+}
+
+func checkSecret(secret, hash string) bool {
+	if strings.HasPrefix(hash, "$2a$") || strings.HasPrefix(hash, "$2b$") {
+		return bcrypt.CompareHashAndPassword([]byte(hash), []byte(secret)) == nil
+	}
+	
+	// Legacy SHA-256 Support
 	sum := sha256.Sum256([]byte(secret))
-	return hex.EncodeToString(sum[:])
+	legacyHash := hex.EncodeToString(sum[:])
+	return subtle.ConstantTimeCompare([]byte(legacyHash), []byte(hash)) == 1
 }
 
 func generatePassword(length int) (string, error) {

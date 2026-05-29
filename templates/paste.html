@@ -397,21 +397,15 @@
 
         async function loadData() {
             try {
-                const urlParams = new URLSearchParams(window.location.search);
-                const pwd = urlParams.get('password');
-                let fetchUrl = '?raw=1';
-                if (pwd) fetchUrl += '&password=' + encodeURIComponent(pwd);
-                
-                const response = await fetch(fetchUrl);
+                const response = await fetch('?raw=1');
                 if (!response.ok) {
-                    const errMsg = response.status === 401 ? '비밀번호가 틀렸거나 필요합니다.' : '데이터를 불러오는데 실패했습니다.';
-                    document.getElementById('globalLoader').innerHTML = '<div style="color:white; font-size:20px;">' + errMsg + '</div>';
+                    document.getElementById('globalLoader').innerHTML = '<div style="color:white; font-size:20px;">데이터를 불러오는데 실패했습니다.</div>';
                     return;
                 }
                 
                 const cType = response.headers.get('content-type') || '';
                 if (!cType.includes('text/')) {
-                    window.location.replace(fetchUrl);
+                    window.location.replace('?raw=1');
                     return;
                 }
                 

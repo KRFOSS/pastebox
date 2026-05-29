@@ -84,14 +84,15 @@ func main() {
 		}
 	}
 
-	indexTemplate, pasteTemplate, adminLoginTemplate, adminDashboardTemplate := loadTemplates()
+	indexTmpl, pasteTmpl, passwordTmpl, adminLoginTmpl, adminDashTmpl := loadTemplates()
 
 	a := &app{
 		store:          store,
-		index:          indexTemplate,
-		pasteView:      pasteTemplate,
-		adminLogin:     adminLoginTemplate,
-		adminDashboard: adminDashboardTemplate,
+		index:          indexTmpl,
+		pasteView:      pasteTmpl,
+		password:       passwordTmpl,
+		adminLogin:     adminLoginTmpl,
+		adminDashboard: adminDashTmpl,
 		adminToken:     adminToken,
 		expireDays:     expireDays,
 		maxUploadSize:  maxUploadSizeMB * 1024 * 1024,
@@ -114,7 +115,7 @@ func main() {
 	mux := http.NewServeMux()
 	mux.HandleFunc("/", uploadLimiter.middleware(a.handle))
 	mux.HandleFunc("/ra", a.adminHandler)
-	mux.HandleFunc("/ra/login", a.adminLoginHandler)
+	mux.HandleFunc("/ra/login", uploadLimiter.middleware(a.adminLoginHandler))
 	mux.HandleFunc("/ra/logout", a.adminLogoutHandler)
 	mux.HandleFunc("/ra/delete", a.adminDeleteHandler)
 	mux.HandleFunc("/ra/delete-all", a.adminDeleteAllHandler)

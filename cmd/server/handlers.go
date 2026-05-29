@@ -24,6 +24,7 @@ type app struct {
 	store         pastebox.Storage
 	index         *template.Template
 	pasteView     *template.Template
+	password      *template.Template
 	adminLogin    *template.Template
 	adminDashboard *template.Template
 	adminToken    string
@@ -54,10 +55,10 @@ func (a *app) handle(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	if r.URL.Path == "/" || r.URL.Path == "/temp" {
+	if r.URL.Path == "/" || r.URL.Path == "/temp" || r.URL.Path == "/pw" {
 		switch r.Method {
 		case http.MethodGet:
-			if r.URL.Path == "/temp" {
+			if r.URL.Path == "/temp" || r.URL.Path == "/pw" {
 				http.Redirect(w, r, "/", http.StatusTemporaryRedirect)
 				return
 			}
@@ -66,6 +67,9 @@ func (a *app) handle(w http.ResponseWriter, r *http.Request) {
 			if r.URL.Path == "/temp" {
 				r.Header.Set("data-policy", "once")
 			}
+			if r.URL.Path == "/pw" {
+				r.Header.Set("usepassword", "true")
+			}
 			a.uploadHandler(w, r)
 		default:
 			http.Error(w, "허용되지 않은 메서드입니다.", http.StatusMethodNotAllowed)
@@ -73,7 +77,7 @@ func (a *app) handle(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	if r.Method != http.MethodGet && r.Method != http.MethodHead {
+	if r.Method != http.MethodGet && r.Method != http.MethodHead && r.Method != http.MethodPost {
 		http.Error(w, "허용되지 않은 메서드입니다.", http.StatusMethodNotAllowed)
 		return
 	}
@@ -245,9 +249,48 @@ func (a *app) deleteHandler(w http.ResponseWriter, r *http.Request, id string, t
 }
 
 func (a *app) viewHandler(w http.ResponseWriter, r *http.Request, id string) {
+	if r.Method == http.MethodPost {
+		password := r.FormValue("password")
+		if password == "" {
+			http.Error(w, "비밀번호가 입력되지 않았습니다.", http.StatusBadRequest)
+			return
+		}
+		
+		_, err := a.store.Stat(id, password)
+		if err != nil {
+			if errors.Is(err, pastebox.ErrInvalidPassword) || errors.Is(err, pastebox.ErrUnauthorizedPassword) {
+				_ = a.password.Execute(w, map[string]any{
+					"Action": "?",
+					"Error":  "비밀번호가 틀렸습니다.",
+				})
+				return
+			}
+			http.NotFound(w, r)
+			return
+		}
+		
+		cookieName := fmt.Sprintf("paste_auth_%s", id)
+		http.SetCookie(w, &http.Cookie{
+			Name:     cookieName,
+			Value:    password,
+			Path:     "/" + id,
+			HttpOnly: true,
+			SameSite: http.SameSiteStrictMode,
+			MaxAge:   3600,
+		})
+		
+		http.Redirect(w, r, "/"+id, http.StatusFound)
+		return
+	}
+
 	password := r.URL.Query().Get("password")
 	if password == "" {
 		password = r.Header.Get("paste-password")
+	}
+	if password == "" {
+		if cookie, err := r.Cookie(fmt.Sprintf("paste_auth_%s", id)); err == nil {
+			password = cookie.Value
+		}
 	}
 
 	raw := r.URL.Query().Get("raw") == "1"
@@ -256,8 +299,12 @@ func (a *app) viewHandler(w http.ResponseWriter, r *http.Request, id string) {
 	if !raw && browser {
 		meta, err := a.store.Stat(id, password)
 		if err != nil {
-			if errors.Is(err, pastebox.ErrInvalidPassword) {
-				http.Error(w, "비밀번호가 필요하거나 유효하지 않습니다. ?password=... 쿼리 파라미터나 paste-password 헤더를 사용하세요.", http.StatusUnauthorized)
+			if errors.Is(err, pastebox.ErrInvalidPassword) || errors.Is(err, pastebox.ErrUnauthorizedPassword) {
+				w.WriteHeader(http.StatusUnauthorized)
+				_ = a.password.Execute(w, map[string]any{
+					"Action": "?",
+					"Error":  "",
+				})
 				return
 			}
 			http.NotFound(w, r)
@@ -282,8 +329,16 @@ func (a *app) viewHandler(w http.ResponseWriter, r *http.Request, id string) {
 
 	entry, err := a.store.Open(id, password)
 	if err != nil {
-		if errors.Is(err, pastebox.ErrInvalidPassword) {
-			http.Error(w, "비밀번호가 필요하거나 유효하지 않습니다. ?password=... 쿼리 파라미터나 paste-password 헤더를 사용하세요.", http.StatusUnauthorized)
+		if errors.Is(err, pastebox.ErrInvalidPassword) || errors.Is(err, pastebox.ErrUnauthorizedPassword) {
+			w.WriteHeader(http.StatusUnauthorized)
+			if browser {
+				_ = a.password.Execute(w, map[string]any{
+					"Action": "?",
+					"Error":  "",
+				})
+			} else {
+				fmt.Fprintln(w, "비밀번호가 필요하거나 유효하지 않습니다. -H 'paste-password: ...' 헤더를 사용하세요.")
+			}
 			return
 		}
 		http.NotFound(w, r)

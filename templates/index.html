@@ -352,7 +352,7 @@
                 </div>
                 <div class="info-item">
                     <span class="info-label">비밀번호 보호 링크</span>
-                    <span class="info-value">curl -H "usepassword: true" --data-binary @secret.txt {{ .BaseURL }}/</span>
+                    <span class="info-value">curl -X POST --data-binary @secret.txt {{ .BaseURL }}/pw</span>
                 </div>
                 <div class="info-item">
                     <span class="info-label">1회 열람 후 파기</span>
