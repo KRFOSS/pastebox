@@ -372,7 +372,7 @@
             </div>
 
             <div class="actions">
-                <a class="button button-primary" href="/">홈</a>
+                <button class="button button-primary" onclick="openUploadModal(event)">웹에서 직접 업로드</button>
                 <button class="button" onclick="copyExample(this)">curl 예시 복사</button>
             </div>
 
@@ -391,6 +391,61 @@
                 개인 클라우드 스토리지 용도 등 본래 목적에 어긋나는 악의적인 대용량 데이터 업로드 및 서비스 남용 시, 사전 통보 없이 데이터가 즉시 삭제되거나 서비스 이용이 영구적으로 차단될 수 있습니다.
             </div>
             <button class="button modal-close" onclick="closeToSModal()">확인</button>
+        </div>
+    </div>
+
+    <!-- Upload Modal -->
+    <div class="modal-overlay" id="uploadModal" onclick="if(event.target===this) closeUploadModal()">
+        <div class="modal-content" style="max-width: 600px;">
+            <h2 class="modal-title">웹 업로드</h2>
+            <div class="modal-body" id="uploadFormBody">
+                <div style="display: flex; gap: 10px; margin-bottom: 20px;">
+                    <button class="button button-primary" id="tabTextBtn" onclick="switchTab('text')" style="flex:1;">텍스트 입력</button>
+                    <button class="button" id="tabFileBtn" onclick="switchTab('file')" style="flex:1;">파일 선택</button>
+                </div>
+                
+                <div id="textUploadArea">
+                    <textarea id="uploadText" placeholder="여기에 텍스트나 로그를 붙여넣으세요..." style="width: 100%; height: 200px; background: #1a1a1a; color: #e5e5e5; border: 1px solid rgba(84,84,88,0.4); border-radius: 8px; padding: 12px; font-family: monospace; resize: vertical; margin-bottom: 16px; outline: none;"></textarea>
+                </div>
+                
+                <div id="fileUploadArea" style="display: none;">
+                    <div style="border: 2px dashed rgba(84,84,88,0.4); border-radius: 8px; padding: 40px 20px; text-align: center; margin-bottom: 16px; cursor: pointer; background: #1a1a1a; transition: background 0.2s;" onclick="document.getElementById('uploadFile').click()" onmouseover="this.style.background='#2c2c2e'" onmouseout="this.style.background='#1a1a1a'">
+                        <p style="margin: 0; color: #aaa;">클릭하여 텍스트 파일을 선택하세요.</p>
+                        <input type="file" id="uploadFile" style="display: none;" onchange="updateFileName(this)">
+                        <p id="fileNameDisplay" style="margin-top: 10px; color: #06b6d4; font-weight: bold; font-size: 14px;"></p>
+                    </div>
+                </div>
+
+                <div style="background: rgba(0,0,0,0.2); padding: 16px; border-radius: 8px; margin-bottom: 24px;">
+                    <label style="display: flex; align-items: center; cursor: pointer; margin-bottom: 12px;">
+                        <input type="checkbox" id="optPassword" style="margin-right: 10px; width: 16px; height: 16px; accent-color: #06b6d4;">
+                        <span style="font-size: 14px; color: #e5e5e5;">비밀번호로 보호하기</span>
+                    </label>
+                    <label style="display: flex; align-items: center; cursor: pointer;">
+                        <input type="checkbox" id="optOnce" style="margin-right: 10px; width: 16px; height: 16px; accent-color: #06b6d4;">
+                        <span style="font-size: 14px; color: #e5e5e5;">1회 열람 후 즉시 파기 (Burn after reading)</span>
+                    </label>
+                </div>
+
+                <button class="button button-primary" id="btnDoUpload" onclick="submitUpload()" style="width: 100%;">업로드 시작</button>
+                <div id="uploadError" style="color: #ef4444; margin-top: 12px; font-size: 14px; display: none; text-align: center; white-space: pre-wrap;"></div>
+            </div>
+            
+            <div class="modal-body" id="uploadResultBody" style="display: none;">
+                <div style="background: #1a1a1a; padding: 20px; border-radius: 8px; border: 1px solid rgba(84,84,88,0.4); margin-bottom: 20px;">
+                    <p style="margin: 0 0 8px 0; font-size: 12px; color: #aaa;">공유 링크 (주소)</p>
+                    <a id="resLink" href="#" target="_blank" style="color: #06b6d4; font-size: 18px; font-weight: bold; text-decoration: none; display: block; margin-bottom: 16px; word-break: break-all;"></a>
+                    
+                    <div id="resPasswordWrap" style="display: none; margin-bottom: 16px;">
+                        <p style="margin: 0 0 4px 0; font-size: 12px; color: #aaa;">비밀번호</p>
+                        <p id="resPassword" style="margin: 0; color: #fbbf24; font-family: monospace; font-size: 16px; font-weight: bold;"></p>
+                    </div>
+
+                    <p style="margin: 0 0 4px 0; font-size: 12px; color: #aaa;">수동 삭제 링크</p>
+                    <p id="resDelete" style="margin: 0; color: #ef4444; font-family: monospace; font-size: 12px; word-break: break-all;"></p>
+                </div>
+                <button class="button" onclick="closeUploadModal()" style="width: 100%;">닫기</button>
+            </div>
         </div>
     </div>
 
@@ -428,6 +483,133 @@
                     btn.innerText = originalText;
                 }, 1500);
             });
+        }
+
+        let currentUploadMode = 'text';
+
+        function openUploadModal(e) {
+            e.preventDefault();
+            document.getElementById('uploadModal').classList.add('active');
+            document.getElementById('uploadFormBody').style.display = 'block';
+            document.getElementById('uploadResultBody').style.display = 'none';
+            document.getElementById('uploadError').style.display = 'none';
+            
+            document.getElementById('uploadText').value = '';
+            document.getElementById('uploadFile').value = '';
+            document.getElementById('fileNameDisplay').innerText = '';
+            document.getElementById('optPassword').checked = false;
+            document.getElementById('optOnce').checked = false;
+        }
+
+        function closeUploadModal() {
+            document.getElementById('uploadModal').classList.remove('active');
+        }
+
+        function switchTab(mode) {
+            currentUploadMode = mode;
+            if (mode === 'text') {
+                document.getElementById('textUploadArea').style.display = 'block';
+                document.getElementById('fileUploadArea').style.display = 'none';
+                document.getElementById('tabTextBtn').classList.add('button-primary');
+                document.getElementById('tabFileBtn').classList.remove('button-primary');
+            } else {
+                document.getElementById('textUploadArea').style.display = 'none';
+                document.getElementById('fileUploadArea').style.display = 'block';
+                document.getElementById('tabFileBtn').classList.add('button-primary');
+                document.getElementById('tabTextBtn').classList.remove('button-primary');
+            }
+        }
+
+        function updateFileName(input) {
+            if (input.files && input.files.length > 0) {
+                document.getElementById('fileNameDisplay').innerText = "선택된 파일: " + input.files[0].name;
+            } else {
+                document.getElementById('fileNameDisplay').innerText = '';
+            }
+        }
+
+        async function submitUpload() {
+            const btn = document.getElementById('btnDoUpload');
+            const errDiv = document.getElementById('uploadError');
+            errDiv.style.display = 'none';
+            
+            let data = null;
+            if (currentUploadMode === 'text') {
+                const text = document.getElementById('uploadText').value;
+                if (!text.trim()) {
+                    errDiv.innerText = "텍스트를 입력해주세요.";
+                    errDiv.style.display = 'block';
+                    return;
+                }
+                data = text;
+            } else {
+                const fileInput = document.getElementById('uploadFile');
+                if (!fileInput.files || fileInput.files.length === 0) {
+                    errDiv.innerText = "파일을 선택해주세요.";
+                    errDiv.style.display = 'block';
+                    return;
+                }
+                data = fileInput.files[0];
+            }
+
+            const usePw = document.getElementById('optPassword').checked;
+            const useTemp = document.getElementById('optOnce').checked;
+            
+            let targetUrl = '/';
+            if (usePw && useTemp) targetUrl = '/pw/temp';
+            else if (usePw) targetUrl = '/pw';
+            else if (useTemp) targetUrl = '/temp';
+
+            btn.disabled = true;
+            btn.innerText = "업로드 중...";
+
+            try {
+                const res = await fetch(targetUrl, {
+                    method: 'POST',
+                    body: data
+                });
+
+                const textRes = await res.text();
+                if (!res.ok) {
+                    throw new Error(textRes || '업로드 실패');
+                }
+
+                const lines = textRes.split('\n');
+                let linkUrl = '';
+                let pw = '';
+                let delUrl = '';
+
+                for (const line of lines) {
+                    if (line.startsWith('주소: ')) linkUrl = line.substring(4).trim();
+                    else if (line.startsWith('비밀번호: ')) pw = line.substring(6).trim();
+                    else if (line.startsWith('삭제링크: ')) delUrl = line.substring(6).trim();
+                }
+
+                if (!linkUrl) {
+                     throw new Error('올바른 응답을 받지 못했습니다.\n' + textRes);
+                }
+
+                document.getElementById('resLink').href = linkUrl;
+                document.getElementById('resLink').innerText = linkUrl;
+                document.getElementById('resDelete').innerText = delUrl;
+                
+                if (pw) {
+                    document.getElementById('resPasswordWrap').style.display = 'block';
+                    document.getElementById('resPassword').innerText = pw;
+                } else {
+                    document.getElementById('resPasswordWrap').style.display = 'none';
+                }
+
+                document.getElementById('uploadFormBody').style.display = 'none';
+                document.getElementById('uploadResultBody').style.display = 'block';
+
+            } catch (e) {
+                errDiv.innerText = e.message;
+                errDiv.style.display = 'block';
+            } finally {
+                btn.disabled = false;
+                btn.innerText = "업로드 시작";
+            }
         }
     </script>
 </body>
