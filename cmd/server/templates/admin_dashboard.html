@@ -10,13 +10,28 @@
       darkMode: 'class'
     }
   </script>
+  <style>
+    /* 스피너 화살표 제거 (Chrome, Safari, Edge, Opera) */
+    input::-webkit-outer-spin-button,
+    input::-webkit-inner-spin-button {
+      -webkit-appearance: none;
+      margin: 0;
+    }
+    /* 스피너 화살표 제거 (Firefox) */
+    input[type=number] {
+      -moz-appearance: textfield;
+    }
+  </style>
 </head>
 <body class="dark min-h-screen bg-[#0B0B0C] text-zinc-100 font-sans">
   <!-- 상단 네비게이션 -->
   <header class="border-b border-zinc-900 bg-zinc-950/60 backdrop-blur-md sticky top-0 z-50">
     <div class="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between">
       <div class="flex items-center gap-3">
-        <span class="text-xl font-bold tracking-tight text-white">Pastebox <span class="text-zinc-600 font-normal">/ Admin</span></span>
+        <a href="/ra" class="flex items-center gap-2">
+          <img data-cfasync="false" loading="eager" decoding="async" src="https://cdn.krfoss.org/web/ROKFOSS.png" alt="ROKFOSS" class="h-8">
+          <span class="text-xl font-bold tracking-tight text-zinc-600 font-normal">/ Admin</span>
+        </a>
         <span class="inline-flex items-center rounded-full bg-emerald-500/10 border border-emerald-500/20 px-2 py-0.5 text-xs font-medium text-emerald-400">
           온라인
         </span>
@@ -96,6 +111,7 @@
               <th scope="col" class="px-6 py-4">ID / 링크</th>
               <th scope="col" class="px-6 py-4">콘텐츠 타입</th>
               <th scope="col" class="px-6 py-4">파일 크기</th>
+              <th scope="col" class="px-6 py-4">보호 여부</th>
               <th scope="col" class="px-6 py-4">생성일</th>
               <th scope="col" class="px-6 py-4">만료일</th>
             </tr>
@@ -119,6 +135,17 @@
               </td>
               <td class="px-6 py-4 text-xs text-zinc-400">{{ .ContentType }}</td>
               <td class="px-6 py-4 text-xs">{{ .Size }} Bytes</td>
+              <td class="px-6 py-4 text-xs">
+                {{ if .PasswordHash }}
+                <span class="inline-flex items-center rounded-full bg-amber-500/10 border border-amber-500/20 px-2 py-0.5 text-[10px] font-medium text-amber-400">
+                  보호됨
+                </span>
+                {{ else }}
+                <span class="inline-flex items-center rounded-full bg-zinc-500/10 border border-zinc-500/20 px-2 py-0.5 text-[10px] font-medium text-zinc-400">
+                  공개
+                </span>
+                {{ end }}
+              </td>
               <td class="px-6 py-4 text-xs text-zinc-500">{{ .CreatedAt.Local.Format "2006-01-02 15:04:05" }}</td>
               <td class="px-6 py-4 text-xs text-zinc-500">
                 {{ if .ExpiresAt.IsZero }}
