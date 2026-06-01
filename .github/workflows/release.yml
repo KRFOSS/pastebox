@@ -7,10 +7,36 @@ on:
       - master
     tags:
       - 'v*'
+    paths-ignore:
+      - '.github/workflows/*.yml'
+      - '.gitignore'
+      - 'LICENSE'
+      - '*.md'
+      - '**/*.md'
+      - '*.jpg'
+      - '**/*.jpg'
+      - '*.jpeg'
+      - '**/*.jpeg'
+      - '*.png'
+      - '**/*.png'
+
   pull_request:
     branches:
       - main
       - master
+    paths-ignore:
+      - '.github/workflows/*.yml'
+      - '.gitignore'
+      - 'license'
+      - 'LICENSE'
+      - '*.md'
+      - '**/*.md'
+      - '*.jpg'
+      - '**/*.jpg'
+      - '*.jpeg'
+      - '**/*.jpeg'
+      - '*.png'
+      - '**/*.png'
 
 permissions:
   contents: write
@@ -28,7 +54,7 @@ jobs:
           # 1. 아카이브 도중 파일 변경 에러(tar: file changed)를 방지하기 위해 임시 폴더(/tmp)에 생성함.
           zip -r /tmp/pastebox-krfs-source.zip . -x "*.git*"
           tar -czvf /tmp/pastebox-krfs-source.tar.gz --exclude=.git .
-          
+
           # 2. 생성된 압축 파일을 현재 워크스페이스로 다시 가져옴
           mv /tmp/pastebox-krfs-source.zip .
           mv /tmp/pastebox-krfs-source.tar.gz .
