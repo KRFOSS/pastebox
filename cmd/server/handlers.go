@@ -183,7 +183,7 @@ func (a *app) uploadHandler(w http.ResponseWriter, r *http.Request) {
 
 	meta, password, deleteToken, err := a.store.Create(reader, contentType, usePassword, once)
 	if err != nil {
-		log.Printf("upload failed: %v", err)
+		log.Printf("업로드 실패: %v", err)
 
 		var maxBytesError *http.MaxBytesError
 		isTooLarge := false
@@ -233,7 +233,7 @@ func (a *app) deleteHandler(w http.ResponseWriter, r *http.Request, id string, t
 
 	if err := a.store.Delete(id, token); err != nil {
 		if errors.Is(err, pastebox.ErrInvalidDeleteToken) {
-			log.Printf("delete denied: id=%s remote=%s", id, r.RemoteAddr)
+			log.Printf("삭제 거부됨: ID=%s, 원격 IP=%s", id, r.RemoteAddr)
 			http.Error(w, "삭제 토큰이 누락되었거나 유효하지 않습니다.", http.StatusUnauthorized)
 			return
 		}
@@ -242,7 +242,7 @@ func (a *app) deleteHandler(w http.ResponseWriter, r *http.Request, id string, t
 		return
 	}
 
-	log.Printf("deleted: id=%s remote=%s", id, r.RemoteAddr)
+	log.Printf("삭제 완료됨: ID=%s, 원격 IP=%s", id, r.RemoteAddr)
 
 	w.Header().Set("Content-Type", "text/plain; charset=utf-8")
 	fmt.Fprintln(w, "삭제되었습니다.")

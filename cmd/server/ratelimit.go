@@ -75,7 +75,7 @@ func (rl *rateLimiter) middleware(next http.HandlerFunc) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		ip := extractIP(r)
 		if !rl.allow(ip) {
-			http.Error(w, "요청이 너무 잠재적입니다. 잠시 후 다시 시도해 주세요.", http.StatusTooManyRequests)
+			http.Error(w, "요청이 너무 많습니다. 잠시 후 다시 시도해 주세요.", http.StatusTooManyRequests)
 			return
 		}
 		next(w, r)

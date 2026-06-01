@@ -104,7 +104,7 @@ func main() {
 
 		for {
 			if err := store.CleanupExpired(); err != nil {
-				log.Printf("cleanup failed: %v", err)
+				log.Printf("만료 항목 정리 실패: %v", err)
 			}
 			<-ticker.C
 		}
@@ -121,7 +121,7 @@ func main() {
 	mux.HandleFunc("/ra/delete-all", a.adminDeleteAllHandler)
 	mux.HandleFunc("/ra/limit", a.adminUpdateLimitHandler)
 
-	log.Printf("pastebox listening on %s", listenAddr)
+	log.Printf("서버가 %s 주소에서 대기 중입니다", listenAddr)
 
 	srv := &http.Server{
 		Addr:         listenAddr,

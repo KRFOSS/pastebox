@@ -20,6 +20,7 @@
     /* 스피너 화살표 제거 (Firefox) */
     input[type=number] {
       -moz-appearance: textfield;
+      appearance: textfield;
     }
   </style>
 </head>
@@ -30,7 +31,7 @@
       <div class="flex items-center gap-3">
         <a href="/ra" class="flex items-center gap-2">
           <img data-cfasync="false" loading="eager" decoding="async" src="https://cdn.krfoss.org/web/ROKFOSS.png" alt="ROKFOSS" class="h-8">
-          <span class="text-xl font-bold tracking-tight text-zinc-600 font-normal">/ Admin</span>
+          <span class="text-xl font-bold tracking-tight text-zinc-600 font-normal">/ 관리자</span>
         </a>
         <span class="inline-flex items-center rounded-full bg-emerald-500/10 border border-emerald-500/20 px-2 py-0.5 text-xs font-medium text-emerald-400">
           온라인
@@ -50,7 +51,7 @@
     <div class="grid grid-cols-1 gap-4 md:grid-cols-3 mb-8">
       <div class="rounded-2xl border border-zinc-900 bg-zinc-950/40 p-5 backdrop-blur-sm">
         <p class="text-xs font-medium text-zinc-500 uppercase tracking-wider">스토리지 상태</p>
-        <p class="mt-2 text-2xl font-bold tracking-tight text-white uppercase">{{ .StorageMode }} Mode</p>
+        <p class="mt-2 text-2xl font-bold tracking-tight text-white uppercase">{{ if eq .StorageMode "db" }}DB 모드{{ else }}로컬 스토리지 모드{{ end }}</p>
       </div>
       <div class="rounded-2xl border border-zinc-900 bg-zinc-950/40 p-5 backdrop-blur-sm">
         <p class="text-xs font-medium text-zinc-500 uppercase tracking-wider">전체 Paste 개수</p>
@@ -134,7 +135,7 @@
                 </a>
               </td>
               <td class="px-6 py-4 text-xs text-zinc-400">{{ .ContentType }}</td>
-              <td class="px-6 py-4 text-xs">{{ .Size }} Bytes</td>
+              <td class="px-6 py-4 text-xs">{{ .Size }} 바이트</td>
               <td class="px-6 py-4 text-xs">
                 {{ if .PasswordHash }}
                 <span class="inline-flex items-center rounded-full bg-amber-500/10 border border-amber-500/20 px-2 py-0.5 text-[10px] font-medium text-amber-400">

@@ -22,15 +22,15 @@ func loadTemplates() (index *template.Template, paste *template.Template, passwo
 func loadOneTemplate(embedName string, diskPath string) *template.Template {
 	diskData, diskErr := os.ReadFile(diskPath)
 	if diskErr == nil {
-		log.Printf("%s loaded from disk", diskPath)
+		log.Printf("%s 디스크에서 로드됨", diskPath)
 		return template.Must(template.New(embedName).Parse(string(diskData)))
 	}
 
 	embedData, err := embeddedTemplates.ReadFile("templates/" + embedName)
 	if err != nil {
-		log.Fatalf("embedded template %s not found: %v", embedName, err)
+		log.Fatalf("내장 템플릿 %s을 찾을 수 없음: %v", embedName, err)
 	}
 
-	log.Printf("%s loaded from embedded fallback", embedName)
+	log.Printf("%s 내장 템플릿(폴백)에서 로드됨", embedName)
 	return template.Must(template.New(embedName).Parse(string(embedData)))
 }
