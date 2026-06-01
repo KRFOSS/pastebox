@@ -4,13 +4,11 @@ on:
   push:
     branches:
       - main
-      - master
     tags:
       - 'v*'
     paths-ignore:
       - '.github/workflows/*.yml'
       - '.gitignore'
-      - 'license'
       - 'LICENSE'
       - '*.md'
       - '**/*.md'
