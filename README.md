@@ -1,3 +1,6 @@
+> [!IMPORTANT]
+> ROKFOSS Pastebox는 [kmw0410/pastebox](https://github.com/kmw0410/pastebox)를 기반으로 수정/운영되는 포크 버전이며, 원본 레포지토리에 대한 이슈 및 PR은 처리되지 않습니다.
+
 # ROKFOSS Pastebox
 curl 기반 텍스트/로그 공유 서비스
 
