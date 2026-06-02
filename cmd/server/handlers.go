@@ -123,7 +123,7 @@ func (a *app) uploadHandler(w http.ResponseWriter, r *http.Request) {
 
 		file, header, err := r.FormFile("file")
 		if err != nil {
-			http.Error(w, "file 필드가 누락되었습니다.", http.StatusBadRequest)
+			http.Error(w, "업로드 파일 필드가 누락되었습니다.", http.StatusBadRequest)
 			return
 		}
 		defer file.Close()

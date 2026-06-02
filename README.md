@@ -133,3 +133,14 @@ ADMIN_TOKEN=
    - 관리자가 업로드된 모든 paste 데이터를 웹 브라우저에서 편리하게 관리할 수 있는 `/ra` 모니터링 콘솔을 제공합니다.
    - `ADMIN_TOKEN`을 통해 안전하게 인증(쿠키 기반) 후 접근하며, **선택 삭제** 및 **전체 파기** 기능을 지원합니다.
    - 최초 기동 시 `ADMIN_TOKEN` 설정이 비어있다면 영문 대소문자 및 숫자 조합의 256자 마스터 토큰이 자동으로 생성되어 `config.conf`에 영구 보존됩니다. (최초 생성 시 서버 표준 출력 로그를 통해 토큰 정보를 확인할 수 있습니다.)
+
+### 프로젝트 구조
+
+| 경로 | 설명 |
+|------|------|
+| `cmd/server/` | HTTP 서버, 핸들러, 관리자 API |
+| `cmd/server/templates/` | `go:embed`용 내장 HTML 템플릿 (디스크 템플릿 없을 때 폴백) |
+| `templates/` | Docker 및 로컬 실행 시 사용하는 HTML 템플릿 (`cmd/server/templates/`와 동기 유지) |
+| `internal/` | 저장소 구현 (로컬 파일 / MariaDB) |
+| `config.example.conf` | 설정 예시 |
+| `docker-compose.yml`, `Dockerfile` | 컨테이너 배포 |
