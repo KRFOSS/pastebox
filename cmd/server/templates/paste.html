@@ -151,7 +151,8 @@
             color: #858585;
             user-select: none;
             border-right: 1px solid rgba(84, 84, 88, 0.2);
-            width: 90px;
+            flex: 0 0 auto;
+            width: var(--line-number-width, 3.5rem);
             box-sizing: border-box;
             overflow: hidden;
             position: relative;
@@ -162,7 +163,7 @@
             top: 0;
             left: 0;
             right: 0;
-            padding: 20px 10px 20px 20px;
+            padding: 20px 12px 20px 16px;
             white-space: pre;
             text-align: right;
         }
@@ -323,6 +324,7 @@
                         복사
                     </button>
                     <a class="button" href="?raw=1">원본</a>
+                    <button class="button" style="color: #ef4444; border-color: rgba(239,68,68,0.4);" onclick="openDeleteModal()">삭제</button>
                 </div>
             </div>
             <div class="viewer-container" id="viewerContainer">
@@ -366,7 +368,29 @@
         </div>
     </div>
 
+    <!-- Delete Modal -->
+    <div class="modal-overlay" id="deleteModal" onclick="if(event.target===this) closeDeleteModal()">
+        <div class="modal-content">
+            <h2 class="modal-title" style="color: #ef4444;">정말 삭제하시겠습니까?</h2>
+            <div class="modal-body">
+                삭제 요청을 보낸 이후에는 다시는 복구할 수 없습니다!
+            </div>
+            <div style="display: flex; gap: 12px; justify-content: flex-end;">
+                <button class="button" onclick="closeDeleteModal()">헉! 다시 생각해볼래요</button>
+                <a class="button button-primary" style="background-color: #ef4444; color: white; text-decoration: none;" href="?delete=force" rel="nofollow">네! 당장 해주세요</a>
+            </div>
+        </div>
+    </div>
+
     <script>
+        function openDeleteModal() {
+            document.getElementById('deleteModal').classList.add('active');
+        }
+
+        function closeDeleteModal() {
+            document.getElementById('deleteModal').classList.remove('active');
+        }
+
         function openToSModal(e) {
             e.preventDefault();
             document.getElementById('tosModal').classList.add('active');
@@ -388,6 +412,8 @@
         const lineHeight = 22;
         const paddingTop = 20;
         const paddingBottom = 20;
+        const lineNumberPadding = 28;
+        const lineNumberMinWidth = 56;
 
         let detectedLanguage = 'plaintext';
         let languageDetected = false;
@@ -423,6 +449,7 @@
                         lines = rawText.split('\n');
                         isSmallFile = lines.length <= 3000;
                         staticRendered = false;
+                        updateLineNumberWidth();
                         
                         const totalHeight = lines.length * lineHeight + paddingTop + paddingBottom;
                         spacer.style.height = totalHeight + 'px';
@@ -443,6 +470,7 @@
                 lines = rawText.split('\n');
                 isSmallFile = lines.length <= 3000;
                 staticRendered = false;
+                updateLineNumberWidth();
                 spacer.style.height = (lines.length * lineHeight + paddingTop + paddingBottom) + 'px';
                 render();
             } catch(e) {
@@ -461,6 +489,12 @@
                 detectedLanguage = result.language || 'plaintext';
                 languageDetected = true;
             }
+        }
+
+        function updateLineNumberWidth() {
+            const digitCount = Math.max(2, String(Math.max(lines.length, 1)).length);
+            const width = Math.max(lineNumberMinWidth, digitCount * 8 + lineNumberPadding);
+            document.documentElement.style.setProperty('--line-number-width', width + 'px');
         }
 
         function render() {

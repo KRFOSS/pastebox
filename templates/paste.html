@@ -324,6 +324,7 @@
                         복사
                     </button>
                     <a class="button" href="?raw=1">원본</a>
+                    <button class="button" style="color: #ef4444; border-color: rgba(239,68,68,0.4);" onclick="openDeleteModal()">삭제</button>
                 </div>
             </div>
             <div class="viewer-container" id="viewerContainer">
@@ -367,7 +368,29 @@
         </div>
     </div>
 
+    <!-- Delete Modal -->
+    <div class="modal-overlay" id="deleteModal" onclick="if(event.target===this) closeDeleteModal()">
+        <div class="modal-content">
+            <h2 class="modal-title" style="color: #ef4444;">정말 삭제하시겠습니까?</h2>
+            <div class="modal-body">
+                삭제 요청을 보낸 이후에는 다시는 복구할 수 없습니다!
+            </div>
+            <div style="display: flex; gap: 12px; justify-content: flex-end;">
+                <button class="button" onclick="closeDeleteModal()">헉! 다시 생각해볼래요</button>
+                <a class="button button-primary" style="background-color: #ef4444; color: white; text-decoration: none;" href="?delete=force" rel="nofollow">네! 당장 해주세요</a>
+            </div>
+        </div>
+    </div>
+
     <script>
+        function openDeleteModal() {
+            document.getElementById('deleteModal').classList.add('active');
+        }
+
+        function closeDeleteModal() {
+            document.getElementById('deleteModal').classList.remove('active');
+        }
+
         function openToSModal(e) {
             e.preventDefault();
             document.getElementById('tosModal').classList.add('active');

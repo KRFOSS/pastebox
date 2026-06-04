@@ -231,15 +231,22 @@ func (a *app) deleteHandler(w http.ResponseWriter, r *http.Request, id string, t
 		return
 	}
 
-	if err := a.store.Delete(id, token); err != nil {
-		if errors.Is(err, pastebox.ErrInvalidDeleteToken) {
-			log.Printf("삭제 거부됨: ID=%s, 원격 IP=%s", id, r.RemoteAddr)
-			http.Error(w, "삭제 토큰이 누락되었거나 유효하지 않습니다.", http.StatusUnauthorized)
+	if token == "force" {
+		if err := a.store.ForceDelete(id); err != nil {
+			http.NotFound(w, r)
 			return
 		}
+	} else {
+		if err := a.store.Delete(id, token); err != nil {
+			if errors.Is(err, pastebox.ErrInvalidDeleteToken) {
+				log.Printf("삭제 거부됨: ID=%s, 원격 IP=%s", id, r.RemoteAddr)
+				http.Error(w, "삭제 토큰이 누락되었거나 유효하지 않습니다.", http.StatusUnauthorized)
+				return
+			}
 
-		http.NotFound(w, r)
-		return
+			http.NotFound(w, r)
+			return
+		}
 	}
 
 	log.Printf("삭제 완료됨: ID=%s, 원격 IP=%s", id, r.RemoteAddr)
