@@ -15,6 +15,7 @@
     input::-webkit-outer-spin-button,
     input::-webkit-inner-spin-button {
       -webkit-appearance: none;
+      appearance: none;
       margin: 0;
     }
     /* 스피너 화살표 제거 (Firefox) */
@@ -111,10 +112,18 @@
               </th>
               <th scope="col" class="px-6 py-4">ID / 링크</th>
               <th scope="col" class="px-6 py-4">콘텐츠 타입</th>
-              <th scope="col" class="px-6 py-4">파일 크기</th>
+              <th scope="col" class="px-6 py-4">
+                <a href="?page={{.CurrentPage}}&limit={{.Limit}}&sort=size&order={{if and (eq .SortBy `size`) (eq .Order `asc`)}}desc{{else}}asc{{end}}" class="hover:text-white transition">파일 크기 {{if eq .SortBy "size"}}{{if eq .Order "asc"}}▲{{else}}▼{{end}}{{end}}</a>
+              </th>
               <th scope="col" class="px-6 py-4">보호 여부</th>
-              <th scope="col" class="px-6 py-4">생성일</th>
+              <th scope="col" class="px-6 py-4">
+                <a href="?page={{.CurrentPage}}&limit={{.Limit}}&sort=created_at&order={{if and (eq .SortBy `created_at`) (eq .Order `asc`)}}desc{{else}}asc{{end}}" class="hover:text-white transition">생성일 {{if eq .SortBy "created_at"}}{{if eq .Order "asc"}}▲{{else}}▼{{end}}{{end}}</a>
+              </th>
               <th scope="col" class="px-6 py-4">만료일</th>
+              <th scope="col" class="px-6 py-4">
+                <a href="?page={{.CurrentPage}}&limit={{.Limit}}&sort=access_count&order={{if and (eq .SortBy `access_count`) (eq .Order `asc`)}}desc{{else}}asc{{end}}" class="hover:text-white transition">접근 횟수 {{if eq .SortBy "access_count"}}{{if eq .Order "asc"}}▲{{else}}▼{{end}}{{end}}</a>
+              </th>
+              <th scope="col" class="px-6 py-4">최근 액세스</th>
             </tr>
           </thead>
           <tbody class="divide-y divide-zinc-900/60 bg-transparent text-zinc-300">
@@ -155,6 +164,14 @@
                 {{ .ExpiresAt.Local.Format "2006-01-02 15:04:05" }}
                 {{ end }}
               </td>
+              <td class="px-6 py-4 text-xs text-zinc-400">{{ .AccessCount }}회</td>
+              <td class="px-6 py-4 text-xs text-zinc-500">
+                {{ if .LastAccessedAt.IsZero }}
+                -
+                {{ else }}
+                {{ .LastAccessedAt.Local.Format "2006-01-02 15:04:05" }}
+                {{ end }}
+              </td>
             </tr>
             {{ else }}
             <tr>
@@ -165,6 +182,31 @@
             {{ end }}
           </tbody>
         </table>
+      </div>
+      <!-- Pagination -->
+      <div class="flex items-center justify-between border-t border-zinc-900 bg-zinc-950/60 px-6 py-3">
+        <div class="flex items-center gap-2 text-xs text-zinc-400">
+          <span>페이지 {{.CurrentPage}} / {{.TotalPages}} (총 {{.TotalCount}}개)</span>
+          <select onchange="window.location.href='?page=1&sort={{.SortBy}}&order={{.Order}}&limit='+this.value" class="ml-2 rounded border border-zinc-800 bg-zinc-900 px-2 py-1 text-xs text-white outline-none focus:border-zinc-700">
+            <option value="15" {{if eq .Limit 15}}selected{{end}}>15개씩 보기</option>
+            <option value="30" {{if eq .Limit 30}}selected{{end}}>30개씩 보기</option>
+            <option value="50" {{if eq .Limit 50}}selected{{end}}>50개씩 보기</option>
+            <option value="100" {{if eq .Limit 100}}selected{{end}}>100개씩 보기</option>
+          </select>
+        </div>
+        <div class="flex gap-1">
+          {{if gt .CurrentPage 1}}
+          <a href="?page={{.PrevPage}}&limit={{.Limit}}&sort={{.SortBy}}&order={{.Order}}" class="rounded border border-zinc-800 bg-zinc-900 px-3 py-1 text-xs text-zinc-300 hover:bg-zinc-800 transition">이전</a>
+          {{else}}
+          <span class="rounded border border-zinc-800 bg-zinc-900 px-3 py-1 text-xs text-zinc-600 cursor-not-allowed">이전</span>
+          {{end}}
+          
+          {{if lt .CurrentPage .TotalPages}}
+          <a href="?page={{.NextPage}}&limit={{.Limit}}&sort={{.SortBy}}&order={{.Order}}" class="rounded border border-zinc-800 bg-zinc-900 px-3 py-1 text-xs text-zinc-300 hover:bg-zinc-800 transition">다음</a>
+          {{else}}
+          <span class="rounded border border-zinc-800 bg-zinc-900 px-3 py-1 text-xs text-zinc-600 cursor-not-allowed">다음</span>
+          {{end}}
+        </div>
       </div>
     </div>
   </main>

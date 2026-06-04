@@ -10,6 +10,7 @@ import (
 	"encoding/hex"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"io"
 	"os"
 	"path/filepath"
@@ -36,9 +37,10 @@ type Storage interface {
 	Delete(id string, token string) error
 	CleanupExpired() error
 	Close() error
-	List() ([]Metadata, error)
+	List(sortBy string, order string, offset int, limit int) ([]Metadata, int, error)
 	ForceDelete(id string) error
 	DeleteAll() error
+	RecordAccess(id string) error
 }
 
 type Metadata struct {
@@ -50,6 +52,8 @@ type Metadata struct {
 	DataPolicy      string    `json:"data_policy,omitempty"`
 	Size            int64     `json:"size"`
 	ContentType     string    `json:"content_type"`
+	AccessCount     int64     `json:"access_count"`
+	LastAccessedAt  time.Time `json:"last_accessed_at,omitempty"`
 }
 
 type Entry struct {
@@ -331,10 +335,10 @@ func (s *LocalStore) Close() error {
 	return nil
 }
 
-func (s *LocalStore) List() ([]Metadata, error) {
+func (s *LocalStore) List(sortBy string, order string, offset int, limit int) ([]Metadata, int, error) {
 	entries, err := os.ReadDir(s.DataDir)
 	if err != nil {
-		return nil, err
+		return nil, 0, err
 	}
 
 	var list []Metadata
@@ -365,10 +369,57 @@ func (s *LocalStore) List() ([]Metadata, error) {
 	}
 
 	sort.Slice(list, func(i, j int) bool {
-		return list[i].CreatedAt.After(list[j].CreatedAt)
+		var less bool
+		switch sortBy {
+		case "size":
+			less = list[i].Size < list[j].Size
+		case "access_count":
+			less = list[i].AccessCount < list[j].AccessCount
+		default:
+			less = list[i].CreatedAt.Before(list[j].CreatedAt)
+		}
+		if order == "desc" {
+			return !less
+		}
+		return less
 	})
 
-	return list, nil
+	total := len(list)
+	if offset > total {
+		offset = total
+	}
+	end := offset + limit
+	if end > total {
+		end = total
+	}
+
+	if offset == end {
+		return []Metadata{}, total, nil
+	}
+
+	return list[offset:end], total, nil
+}
+
+func (s *LocalStore) RecordAccess(id string) error {
+	if !validID(id) {
+		return ErrNotFound
+	}
+	l, release := s.lockMgr.acquire(id)
+	l.mu.Lock()
+	defer release()
+	defer l.mu.Unlock()
+
+	meta, err := s.readMetadata(id)
+	if err != nil {
+		return ErrNotFound
+	}
+	if isExpired(meta, time.Now().UTC(), s.TTL) {
+		return ErrNotFound
+	}
+
+	meta.AccessCount++
+	meta.LastAccessedAt = time.Now().UTC()
+	return s.writeMetadata(meta)
 }
 
 func (s *LocalStore) ForceDelete(id string) error {
@@ -530,11 +581,16 @@ func (s *DBStore) autoMigrate() error {
 		size BIGINT NOT NULL,
 		content_type VARCHAR(128) NOT NULL,
 		content LONGBLOB NOT NULL,
-		compressed_algo VARCHAR(16) NOT NULL
+		compressed_algo VARCHAR(16) NOT NULL,
+		access_count BIGINT NOT NULL DEFAULT 0,
+		last_accessed_at DATETIME NULL
 	);`
 	if _, err := s.db.Exec(query); err != nil {
 		return err
 	}
+
+	_, _ = s.db.Exec(`ALTER TABLE pastes ADD COLUMN access_count BIGINT NOT NULL DEFAULT 0`)
+	_, _ = s.db.Exec(`ALTER TABLE pastes ADD COLUMN last_accessed_at DATETIME NULL`)
 
 	indexQuery := `CREATE INDEX IF NOT EXISTS idx_pastes_expires_at ON pastes(expires_at);`
 	_, _ = s.db.Exec(indexQuery)
@@ -619,8 +675,8 @@ func (s *DBStore) Create(r io.Reader, contentType string, usePassword bool, once
 	}
 
 	insertQuery := `
-	INSERT INTO pastes (id, password_hash, delete_token_hash, created_at, expires_at, data_policy, size, content_type, content, compressed_algo)
-	VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
+	INSERT INTO pastes (id, password_hash, delete_token_hash, created_at, expires_at, data_policy, size, content_type, content, compressed_algo, access_count)
+	VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 0)`
 
 	_, err = s.db.Exec(insertQuery, id, dbPassHash, meta.DeleteTokenHash, now, expiresAtNull, dataPolicy, size, contentType, compressedData, s.compressAlgo)
 	if err != nil {
@@ -640,9 +696,10 @@ func (s *DBStore) Open(id string, password string) (*Entry, error) {
 	var expiresAtNull sql.NullTime
 	var compressedData []byte
 	var algo string
+	var lastAccessedAtNull sql.NullTime
 
 	query := `
-	SELECT id, password_hash, delete_token_hash, created_at, expires_at, data_policy, size, content_type, content, compressed_algo
+	SELECT id, password_hash, delete_token_hash, created_at, expires_at, data_policy, size, content_type, content, compressed_algo, access_count, last_accessed_at
 	FROM pastes
 	WHERE id = ?`
 
@@ -657,6 +714,8 @@ func (s *DBStore) Open(id string, password string) (*Entry, error) {
 		&meta.ContentType,
 		&compressedData,
 		&algo,
+		&meta.AccessCount,
+		&lastAccessedAtNull,
 	)
 	if err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
@@ -670,6 +729,9 @@ func (s *DBStore) Open(id string, password string) (*Entry, error) {
 	}
 	if expiresAtNull.Valid {
 		meta.ExpiresAt = expiresAtNull.Time
+	}
+	if lastAccessedAtNull.Valid {
+		meta.LastAccessedAt = lastAccessedAtNull.Time
 	}
 
 	if isExpired(meta, time.Now().UTC(), s.TTL) {
@@ -706,9 +768,10 @@ func (s *DBStore) Stat(id string, password string) (Metadata, error) {
 	var meta Metadata
 	var dbPassHash sql.NullString
 	var expiresAtNull sql.NullTime
+	var lastAccessedAtNull sql.NullTime
 
 	query := `
-	SELECT id, password_hash, delete_token_hash, created_at, expires_at, data_policy, size, content_type
+	SELECT id, password_hash, delete_token_hash, created_at, expires_at, data_policy, size, content_type, access_count, last_accessed_at
 	FROM pastes
 	WHERE id = ?`
 
@@ -721,6 +784,8 @@ func (s *DBStore) Stat(id string, password string) (Metadata, error) {
 		&meta.DataPolicy,
 		&meta.Size,
 		&meta.ContentType,
+		&meta.AccessCount,
+		&lastAccessedAtNull,
 	)
 	if err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
@@ -734,6 +799,9 @@ func (s *DBStore) Stat(id string, password string) (Metadata, error) {
 	}
 	if expiresAtNull.Valid {
 		meta.ExpiresAt = expiresAtNull.Time
+	}
+	if lastAccessedAtNull.Valid {
+		meta.LastAccessedAt = lastAccessedAtNull.Time
 	}
 
 	if isExpired(meta, time.Now().UTC(), s.TTL) {
@@ -795,19 +863,48 @@ func (s *DBStore) Close() error {
 	return nil
 }
 
-func (s *DBStore) List() ([]Metadata, error) {
+func (s *DBStore) List(sortBy string, order string, offset int, limit int) ([]Metadata, int, error) {
 	now := time.Now().UTC()
 	cutoff := now.Add(-s.TTL)
-	query := `
-	SELECT id, password_hash, delete_token_hash, created_at, expires_at, data_policy, size, content_type
+
+	var count int
+	countQuery := `
+	SELECT COUNT(*)
+	FROM pastes
+	WHERE (expires_at IS NOT NULL AND expires_at >= ?)
+	   OR (expires_at IS NULL AND created_at >= ?)`
+
+	err := s.db.QueryRow(countQuery, now, cutoff).Scan(&count)
+	if err != nil {
+		return nil, 0, err
+	}
+
+	if offset >= count && count > 0 {
+		return []Metadata{}, count, nil
+	}
+
+	orderClause := "created_at"
+	switch sortBy {
+	case "size":
+		orderClause = "size"
+	case "access_count":
+		orderClause = "access_count"
+	}
+	descClause := ""
+	if order == "desc" {
+		descClause = " DESC"
+	}
+
+	query := fmt.Sprintf(`
+	SELECT id, password_hash, delete_token_hash, created_at, expires_at, data_policy, size, content_type, access_count, last_accessed_at
 	FROM pastes
 	WHERE (expires_at IS NOT NULL AND expires_at >= ?)
 	   OR (expires_at IS NULL AND created_at >= ?)
-	ORDER BY created_at DESC`
+	ORDER BY %s%s LIMIT ? OFFSET ?`, orderClause, descClause)
 
-	rows, err := s.db.Query(query, now, cutoff)
+	rows, err := s.db.Query(query, now, cutoff, limit, offset)
 	if err != nil {
-		return nil, err
+		return nil, 0, err
 	}
 	defer rows.Close()
 
@@ -816,6 +913,7 @@ func (s *DBStore) List() ([]Metadata, error) {
 		var meta Metadata
 		var dbPassHash sql.NullString
 		var expiresAtNull sql.NullTime
+		var lastAccessedAtNull sql.NullTime
 
 		err := rows.Scan(
 			&meta.ID,
@@ -826,9 +924,11 @@ func (s *DBStore) List() ([]Metadata, error) {
 			&meta.DataPolicy,
 			&meta.Size,
 			&meta.ContentType,
+			&meta.AccessCount,
+			&lastAccessedAtNull,
 		)
 		if err != nil {
-			return nil, err
+			return nil, 0, err
 		}
 
 		if dbPassHash.Valid {
@@ -837,15 +937,27 @@ func (s *DBStore) List() ([]Metadata, error) {
 		if expiresAtNull.Valid {
 			meta.ExpiresAt = expiresAtNull.Time
 		}
+		if lastAccessedAtNull.Valid {
+			meta.LastAccessedAt = lastAccessedAtNull.Time
+		}
 
 		list = append(list, meta)
 	}
 
 	if err := rows.Err(); err != nil {
-		return nil, err
+		return nil, 0, err
 	}
 
-	return list, nil
+	return list, count, nil
+}
+
+func (s *DBStore) RecordAccess(id string) error {
+	if !validID(id) {
+		return ErrNotFound
+	}
+	now := time.Now().UTC()
+	_, err := s.db.Exec(`UPDATE pastes SET access_count = access_count + 1, last_accessed_at = ? WHERE id = ?`, now, id)
+	return err
 }
 
 func (s *DBStore) ForceDelete(id string) error {

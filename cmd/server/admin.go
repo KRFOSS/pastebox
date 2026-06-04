@@ -70,7 +70,35 @@ func (a *app) adminHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	pastes, err := a.store.List()
+	// Pagination & Sorting Parameters
+	pageStr := r.URL.Query().Get("page")
+	limitStr := r.URL.Query().Get("limit")
+	sortBy := r.URL.Query().Get("sort")
+	order := r.URL.Query().Get("order")
+
+	if sortBy == "" {
+		sortBy = "created_at"
+	}
+	if order == "" {
+		order = "desc"
+	}
+
+	page, err := strconv.Atoi(pageStr)
+	if err != nil || page < 1 {
+		page = 1
+	}
+
+	limit, err := strconv.Atoi(limitStr)
+	if err != nil || limit < 1 {
+		limit = 15 // Default
+	}
+	if limit > 100 {
+		limit = 100 // Max 100
+	}
+
+	offset := (page - 1) * limit
+
+	pastes, totalCount, err := a.store.List(sortBy, order, offset, limit)
 	if err != nil {
 		http.Error(w, "데이터 조회 실패", http.StatusInternalServerError)
 		return
@@ -86,6 +114,14 @@ func (a *app) adminHandler(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
+	totalPages := totalCount / limit
+	if totalCount%limit != 0 {
+		totalPages++
+	}
+	if totalPages == 0 {
+		totalPages = 1
+	}
+
 	w.Header().Set("Content-Type", "text/html; charset=utf-8")
 	csrfToken := a.setCSRFCookie(w)
 	_ = a.adminDashboard.Execute(w, map[string]any{
@@ -93,6 +129,14 @@ func (a *app) adminHandler(w http.ResponseWriter, r *http.Request) {
 		"StorageMode":    a.getStorageModeString(),
 		"CurrentLimitMB": a.getMaxUploadSize() / (1024 * 1024),
 		"CSRFToken":      csrfToken,
+		"TotalCount":     totalCount,
+		"TotalPages":     totalPages,
+		"CurrentPage":    page,
+		"PrevPage":       page - 1,
+		"NextPage":       page + 1,
+		"Limit":          limit,
+		"SortBy":         sortBy,
+		"Order":          order,
 	})
 }
 

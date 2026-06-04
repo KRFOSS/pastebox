@@ -346,6 +346,8 @@ func (a *app) viewHandler(w http.ResponseWriter, r *http.Request, id string) {
 	}
 	defer entry.File.Close()
 
+	_ = a.store.RecordAccess(id)
+
 	if entry.Meta.PasswordHash != "" || strings.EqualFold(entry.Meta.DataPolicy, "once") {
 		w.Header().Set("Cache-Control", "no-store, no-cache, must-revalidate, max-age=0")
 	} else {

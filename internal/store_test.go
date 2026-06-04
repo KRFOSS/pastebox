@@ -162,7 +162,7 @@ func TestStoreAdmin(t *testing.T) {
 		t.Fatalf("failed to create entry 2: %v", err)
 	}
 
-	list, err := store.List()
+	list, _, err := store.List("created_at", "desc", 0, 10)
 	if err != nil {
 		t.Fatalf("failed to list pastes: %v", err)
 	}
@@ -175,7 +175,7 @@ func TestStoreAdmin(t *testing.T) {
 		t.Fatalf("failed to force delete paste 1: %v", err)
 	}
 
-	list, err = store.List()
+	list, _, err = store.List("created_at", "desc", 0, 10)
 	if err != nil {
 		t.Fatalf("failed to list pastes after delete: %v", err)
 	}
@@ -191,7 +191,7 @@ func TestStoreAdmin(t *testing.T) {
 		t.Fatalf("failed to delete all: %v", err)
 	}
 
-	list, err = store.List()
+	list, _, err = store.List("created_at", "desc", 0, 10)
 	if err != nil {
 		t.Fatalf("failed to list pastes after delete all: %v", err)
 	}
