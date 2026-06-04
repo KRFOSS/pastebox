@@ -26,4 +26,6 @@ config.conf
 *.sln
 *.swp
 *~
-.commandcode/
+.*/
+
+brief.md

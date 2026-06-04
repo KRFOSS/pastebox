@@ -1,620 +1,1349 @@
-<!DOCTYPE html>
+<!doctype html>
 <html lang="ko">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Pastebox</title>
-    <style>
-        :root {
-            --focus-ring: #06b6d4;
-        }
+    <head>
+        <meta charset="UTF-8" />
+        <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+        <title>Pastebox</title>
+        <style>
+            :root {
+                --bg-primary: #0a0a0a;
+                --bg-surface: #141414;
+                --bg-surface-hover: #1c1c1c;
+                --border-subtle: #262626;
+                --border-focus: #00d4ff;
+                --text-primary: #fafafa;
+                --text-secondary: #a3a3a3;
+                --accent: #00d4ff;
+                --accent-dim: rgba(0, 212, 255, 0.1);
+                --danger: #ef4444;
+                --success: #22c55e;
+                --radius-sm: 4px;
+                --radius-md: 8px;
+            }
 
-        html {
-            box-sizing: border-box;
-        }
+            html {
+                box-sizing: border-box;
+            }
+            *,
+            *::before,
+            *::after {
+                box-sizing: inherit;
+            }
+            html,
+            body {
+                width: 100%;
+                overflow-x: hidden;
+            }
 
-        *, *::before, *::after {
-            box-sizing: inherit;
-        }
+            body {
+                background: var(--bg-primary);
+                color: var(--text-primary);
+                margin: 0;
+                padding: 0;
+                font-family:
+                    -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto,
+                    "Helvetica Neue", Arial, sans-serif;
+                min-height: 100vh;
+                display: flex;
+                flex-direction: column;
+                -webkit-font-smoothing: antialiased;
+            }
 
-        html, body {
-            width: 100%;
-            overflow-x: hidden;
-        }
+            :focus-visible {
+                outline: 2px solid var(--border-focus);
+                outline-offset: 2px;
+            }
 
-        * {
-            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, "Noto Sans", "Apple Color Emoji", "Segoe UI Emoji", sans-serif;
-        }
+            @keyframes fadeInUp {
+                from {
+                    opacity: 0;
+                    transform: translateY(12px);
+                }
+                to {
+                    opacity: 1;
+                    transform: translateY(0);
+                }
+            }
 
-        body {
-            background: #1a1a1a;
-            color: #e5e5e5;
-            margin: 0;
-            padding: 0;
-            position: relative;
-            min-height: 100vh;
-            display: flex;
-            flex-direction: column;
-        }
-
-        :focus-visible {
-            outline: 3px solid var(--focus-ring);
-            outline-offset: 2px;
-        }
-
-        /* Navbar (ROKFOSS Main Style) */
-        .navbar {
-            position: fixed;
-            top: 0;
-            left: 0;
-            width: 100%;
-            box-shadow: none !important;
-            border: none !important;
-            padding-bottom: 40px !important;
-            z-index: 1000;
-            background: linear-gradient( to bottom, rgba(0, 0, 0, 0.8) 0%, rgba(0, 0, 0, 0.65) 20%, rgba(0, 0, 0, 0.50) 40%, rgba(0, 0, 0, 0.35) 60%, rgba(0, 0, 0, 0.20) 75%, rgba(0, 0, 0, 0.10) 85%, rgba(0, 0, 0, 0.04) 93%, rgba(0, 0, 0, 0) 100% ) !important;
-            transition: transform 0.4s cubic-bezier(0.4, 0, 0.2, 1), background 0.4s ease;
-            padding: 23px !important;
-            transform: translateY(0);
-        }
-
-        .navbar .container {
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            flex-wrap: nowrap;
-            width: 100%;
-            max-width: 1200px;
-            margin: 0 auto;
-            padding: 0 1rem;
-        }
-
-        .navbar-brand img {
-            height: 40px;
-        }
-
-        .main-container {
-            flex: 1;
-            display: flex;
-            flex-direction: column;
-            justify-content: center;
-            align-items: center;
-            padding: 140px 20px 80px;
-            box-sizing: border-box;
-        }
-
-        .content-wrapper {
-            max-width: 720px;
-            width: 100%;
-            text-align: center;
-        }
-
-        h1 {
-            font-size: 48px;
-            font-weight: 700;
-            color: #fff;
-            margin-bottom: 0.5rem;
-        }
-
-        .subtitle {
-            font-size: 20px;
-            color: #fff;
-            margin-bottom: 2rem;
-        }
-
-        .description {
-            font-size: 16px;
-            line-height: 1.5;
-            color: #e5e5e5;
-            margin-bottom: 2.5rem;
-        }
-
-        .info-section {
-            background-color: #242424;
-            border-radius: 10px;
-            padding: 20px;
-            margin-bottom: 32px;
-            text-align: left;
-        }
-
-        .info-item {
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            padding: 16px 0;
-            border-bottom: 0.5px solid rgba(84, 84, 88, 0.4);
-        }
-
-        .info-item:last-child {
-            border-bottom: none;
-            padding-bottom: 0;
-        }
-
-        .info-item:first-child {
-            padding-top: 0;
-        }
-
-        .info-label {
-            font-size: 15px;
-            line-height: 20px;
-            color: rgba(235, 235, 245, 0.6);
-            font-weight: 500;
-            flex-shrink: 0;
-            margin-right: 16px;
-        }
-
-        .info-value {
-            font-size: 14px;
-            line-height: 20px;
-            color: #ffffff;
-            font-weight: 400;
-            text-align: right;
-            font-family: ui-monospace, SFMono-Regular, SF Pro Icons, "SF Mono", Menlo, Monaco, Consolas, monospace;
-            word-break: break-all;
-            white-space: pre-wrap;
-            max-width: 75%;
-        }
-
-        .actions {
-            display: flex;
-            gap: 12px;
-            margin-top: 24px;
-            margin-bottom: 32px;
-            justify-content: center;
-        }
-
-        .button {
-            background-color: #242424;
-            color: #ffffff;
-            border: 1px solid rgba(84, 84, 88, 0.4);
-            border-radius: 10px;
-            padding: 12px 24px;
-            font-size: 15px;
-            font-weight: 600;
-            text-decoration: none;
-            display: inline-flex;
-            align-items: center;
-            justify-content: center;
-            cursor: pointer;
-            transition: background-color 0.2s, transform 0.1s;
-            user-select: none;
-        }
-
-        .button:hover {
-            background-color: #2c2c2e;
-        }
-
-        .button:active {
-            transform: scale(0.98);
-        }
-
-        .button-primary {
-            background-color: #ffffff;
-            color: #000000;
-            border: none;
-        }
-
-        .button-primary:hover {
-            background-color: rgba(255, 255, 255, 0.85);
-        }
-
-        .footer-text {
-            font-size: 14px;
-            color: #aaa;
-            margin-top: 2rem;
-            text-align: center;
-        }
-
-        @media (max-width: 768px) {
+            /* Navbar */
             .navbar {
-                padding: 12px 15px !important;
+                position: fixed;
+                top: 0;
+                left: 0;
+                width: 100%;
+                z-index: 1000;
+                background: linear-gradient(
+                    to bottom,
+                    rgba(10, 10, 10, 0.95) 0%,
+                    rgba(10, 10, 10, 0.8) 60%,
+                    rgba(10, 10, 10, 0) 100%
+                );
+                backdrop-filter: blur(8px);
+                -webkit-backdrop-filter: blur(8px);
+                padding: calc(20px + env(safe-area-inset-top)) 24px 20px;
+                border-bottom: 1px solid transparent;
+                transition: border-color 0.2s ease;
+            }
+
+            .navbar.scrolled {
+                border-bottom-color: var(--border-subtle);
             }
 
             .navbar .container {
-                flex-direction: row;
+                max-width: 1200px;
+                margin: 0 auto;
+                display: flex;
                 align-items: center;
-                gap: 12px;
             }
 
             .navbar-brand img {
-                height: 28px;
+                height: 32px;
+                display: block;
             }
 
+            /* Main Layout */
             .main-container {
-                padding-top: 120px;
-            }
-
-            .info-item {
+                flex: 1;
+                display: flex;
                 flex-direction: column;
-                align-items: flex-start;
-                gap: 8px;
-                padding: 12px 0;
+                align-items: center;
+                padding: 120px 24px 80px;
+                width: 100%;
             }
 
-            .info-label {
-                margin-right: 0;
+            .content-wrapper {
+                max-width: 800px;
+                width: 100%;
+            }
+
+            .hero {
+                text-align: center;
+                margin-bottom: 48px;
+                animation: fadeInUp 0.4s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+            }
+
+            h1 {
+                font-size: 3rem;
+                font-weight: 800;
+                letter-spacing: -0.03em;
+                color: var(--text-primary);
+                margin: 0 0 12px 0;
+                text-wrap: balance;
+            }
+
+            .subtitle {
+                font-size: 1.25rem;
+                color: var(--text-secondary);
+                font-weight: 400;
+                margin: 0 0 16px 0;
+            }
+
+            .description {
+                font-size: 1rem;
+                line-height: 1.7;
+                color: var(--text-secondary);
+                max-width: 600px;
+                margin: 0 auto;
+                text-wrap: pretty;
+            }
+
+            /* Command Blocks */
+            .commands-section {
+                display: flex;
+                flex-direction: column;
+                gap: 12px;
+                margin-bottom: 32px;
+            }
+
+            .command-block {
+                background: var(--bg-surface);
+                border: 1px solid var(--border-subtle);
+                border-radius: var(--radius-md);
+                padding: 16px;
+                display: flex;
+                flex-direction: column;
+                gap: 12px;
+                transition:
+                    border-color 0.15s ease,
+                    background-color 0.15s ease;
+                opacity: 0;
+                animation: fadeInUp 0.4s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+            }
+
+            .command-block:nth-child(1) {
+                animation-delay: 0.05s;
+            }
+            .command-block:nth-child(2) {
+                animation-delay: 0.1s;
+            }
+            .command-block:nth-child(3) {
+                animation-delay: 0.15s;
+            }
+            .command-block:nth-child(4) {
+                animation-delay: 0.2s;
+            }
+            .command-block:nth-child(5) {
+                animation-delay: 0.25s;
+            }
+
+            .command-block:hover {
+                border-color: #404040;
+                background: var(--bg-surface-hover);
+            }
+
+            .command-header {
+                display: flex;
+                justify-content: space-between;
+                align-items: center;
+            }
+
+            .command-label {
+                font-size: 0.875rem;
+                color: var(--text-secondary);
+                font-weight: 500;
+            }
+
+            .copy-btn {
+                background: transparent;
+                border: 1px solid var(--border-subtle);
+                color: var(--text-secondary);
+                padding: 10px 16px;
+                border-radius: var(--radius-sm);
+                font-size: 0.875rem;
+                font-weight: 500;
+                cursor: pointer;
+                display: inline-flex;
+                align-items: center;
+                justify-content: center;
+                gap: 6px;
+                min-height: 44px;
+                transition: all 0.15s ease;
+                touch-action: manipulation;
+                -webkit-tap-highlight-color: transparent;
+            }
+
+            .copy-btn:hover {
+                background: var(--border-subtle);
+                color: var(--text-primary);
+                border-color: #404040;
+            }
+
+            .copy-btn.copied {
+                background: var(--accent-dim);
+                border-color: var(--accent);
+                color: var(--accent);
+            }
+
+            .command-code {
+                font-family:
+                    ui-monospace, SFMono-Regular, "SF Mono", Menlo, Monaco,
+                    Consolas, "Liberation Mono", "Courier New", monospace;
+                font-size: 0.875rem;
+                color: var(--accent);
+                background: var(--bg-primary);
+                padding: 12px 16px;
+                border-radius: var(--radius-sm);
+                border: 1px solid var(--border-subtle);
+                word-break: break-all;
+                line-height: 1.5;
+                margin: 0;
+                font-variant-numeric: tabular-nums;
+            }
+
+            /* Info Block */
+            .info-block {
+                background: var(--bg-surface);
+                border: 1px solid var(--border-subtle);
+                border-radius: var(--radius-md);
+                padding: 20px;
+                margin-bottom: 32px;
+            }
+
+            .info-block-title {
+                font-size: 0.875rem;
+                color: var(--text-secondary);
+                font-weight: 600;
+                margin: 0 0 16px 0;
+                text-transform: uppercase;
+                letter-spacing: 0.05em;
+            }
+
+            .info-row {
+                display: flex;
+                justify-content: space-between;
+                align-items: flex-start;
+                padding: 12px 0;
+                border-bottom: 1px solid var(--border-subtle);
+                gap: 16px;
+            }
+
+            .info-row:last-child {
+                border-bottom: none;
+                padding-bottom: 0;
+            }
+            .info-row:first-child {
+                padding-top: 0;
+            }
+
+            .info-key {
+                font-size: 0.875rem;
+                color: var(--text-secondary);
+                font-weight: 500;
+                flex-shrink: 0;
+                min-width: 100px;
             }
 
             .info-value {
-                text-align: left;
-                max-width: 100%;
-                width: 100%;
-                background: rgba(0, 0, 0, 0.25);
-                padding: 10px;
-                border-radius: 6px;
-                font-size: 13px;
-                white-space: nowrap;
-                overflow-x: auto;
+                font-family:
+                    ui-monospace, SFMono-Regular, "SF Mono", Menlo, Monaco,
+                    Consolas, "Liberation Mono", "Courier New", monospace;
+                font-size: 0.8125rem;
+                color: var(--text-primary);
+                text-align: right;
+                word-break: break-all;
+                line-height: 1.5;
+                font-variant-numeric: tabular-nums;
+                text-wrap: pretty;
             }
-            
+
+            /* Actions */
             .actions {
-                flex-direction: column;
+                display: flex;
+                gap: 12px;
+                justify-content: center;
+                margin-bottom: 48px;
             }
-            
+
             .button {
+                background: var(--bg-surface);
+                color: var(--text-primary);
+                border: 1px solid var(--border-subtle);
+                border-radius: var(--radius-sm);
+                padding: 12px 24px;
+                font-size: 0.9375rem;
+                font-weight: 600;
+                cursor: pointer;
+                display: inline-flex;
+                align-items: center;
+                justify-content: center;
+                transition: all 0.15s ease;
+                text-decoration: none;
+                touch-action: manipulation;
+                -webkit-tap-highlight-color: transparent;
+            }
+
+            .button:hover {
+                background: var(--bg-surface-hover);
+                border-color: #404040;
+            }
+            .button:active {
+                transform: translateY(1px);
+            }
+
+            .button-primary {
+                background: var(--text-primary);
+                color: var(--bg-primary);
+                border: 1px solid var(--text-primary);
+            }
+
+            .button-primary:hover {
+                background: #e5e5e5;
+                border-color: #e5e5e5;
+            }
+
+            .button:disabled,
+            .copy-btn:disabled {
+                opacity: 0.5;
+                cursor: not-allowed;
+                pointer-events: none;
+            }
+
+            .copy-btn:active {
+                transform: translateY(1px);
+            }
+
+            .sr-only {
+                position: absolute;
+                width: 1px;
+                height: 1px;
+                padding: 0;
+                margin: -1px;
+                overflow: hidden;
+                clip: rect(0, 0, 0, 0);
+                white-space: nowrap;
+                border-width: 0;
+            }
+
+            .footer-text {
+                font-size: 0.875rem;
+                color: var(--text-secondary);
+                text-align: center;
+            }
+
+            .footer-text a {
+                color: var(--text-secondary);
+                text-decoration: underline;
+                text-underline-offset: 3px;
+                transition: color 0.15s ease;
+            }
+
+            .footer-text a:hover {
+                color: var(--text-primary);
+            }
+
+            /* Native Dialog Modals */
+            .modal-dialog {
+                margin: auto;
+                padding: 0;
+                background: transparent;
+                border: none;
+                max-width: 90vw;
+                width: fit-content;
+            }
+
+            .modal-dialog::backdrop {
+                background: rgba(0, 0, 0, 0.8);
+                backdrop-filter: blur(8px);
+                -webkit-backdrop-filter: blur(8px);
+                opacity: 0;
+                transition: opacity 0.15s ease;
+            }
+
+            .modal-dialog[open]::backdrop {
+                opacity: 1;
+            }
+
+            .modal-content {
+                background: var(--bg-surface);
+                border: 1px solid var(--border-subtle);
+                border-radius: var(--radius-md);
+                width: 100%;
+                max-width: 640px;
+                max-height: 90vh;
+                overflow-y: auto;
+                padding: 32px;
+                box-shadow: 0 24px 48px rgba(0, 0, 0, 0.5);
+                transform: scale(0.98) translateY(8px);
+                opacity: 0;
+                transition:
+                    transform 0.15s cubic-bezier(0.16, 1, 0.3, 1),
+                    opacity 0.15s ease;
+                text-align: left;
+            }
+
+            .modal-dialog[open] .modal-content {
+                transform: scale(1) translateY(0);
+                opacity: 1;
+            }
+
+            .modal-title {
+                font-size: 1.25rem;
+                font-weight: 700;
+                color: var(--text-primary);
+                margin: 0 0 16px 0;
+                letter-spacing: -0.01em;
+                text-wrap: balance;
+            }
+
+            .modal-body {
+                font-size: 0.9375rem;
+                line-height: 1.7;
+                color: var(--text-secondary);
+                margin-bottom: 32px;
+                text-wrap: pretty;
+            }
+
+            .modal-close {
                 width: 100%;
             }
-        }
 
-        .modal-overlay {
-            position: fixed;
-            top: 0;
-            left: 0;
-            width: 100%;
-            height: 100%;
-            background: rgba(0, 0, 0, 0.6);
-            backdrop-filter: blur(4px);
-            -webkit-backdrop-filter: blur(4px);
-            z-index: 2000;
-            display: none;
-            justify-content: center;
-            align-items: center;
-            opacity: 0;
-            transition: opacity 0.3s ease;
-        }
-
-        .modal-overlay.active {
-            display: flex;
-            opacity: 1;
-        }
-
-        .modal-content {
-            background: #242424;
-            border: 1px solid rgba(84, 84, 88, 0.4);
-            border-radius: 16px;
-            width: 90%;
-            max-width: 500px;
-            padding: 32px;
-            box-shadow: 0 20px 40px rgba(0, 0, 0, 0.4);
-            transform: scale(0.95);
-            transition: transform 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275);
-            text-align: left;
-        }
-
-        .modal-overlay.active .modal-content {
-            transform: scale(1);
-        }
-
-        .modal-title {
-            font-size: 20px;
-            font-weight: 700;
-            color: #fff;
-            margin-bottom: 16px;
-            margin-top: 0;
-        }
-
-        .modal-body {
-            font-size: 14px;
-            line-height: 1.6;
-            color: rgba(235, 235, 245, 0.8);
-            margin-bottom: 32px;
-        }
-
-        .modal-close {
-            width: 100%;
-        }
-
-        @media (prefers-reduced-motion: reduce) {
-            * {
-                animation: none !important;
-                transition: none !important;
+            /* Modal Form Elements */
+            .modal-textarea {
+                width: 100%;
+                height: 200px;
+                background: var(--bg-primary);
+                color: var(--text-primary);
+                border: 1px solid var(--border-subtle);
+                border-radius: var(--radius-sm);
+                padding: 12px;
+                font-family:
+                    ui-monospace, SFMono-Regular, "SF Mono", Menlo, Monaco,
+                    Consolas, "Liberation Mono", "Courier New", monospace;
+                font-size: 0.875rem;
+                resize: vertical;
+                margin-bottom: 16px;
+                outline: none;
+                transition: border-color 0.15s ease;
             }
-        }
-    </style>
-</head>
-<body>
-    <nav class="navbar">
-        <div class="container">
-            <a class="navbar-brand" href="/">
-                <img data-cfasync="false" loading="eager" decoding="async" src="https://cdn.krfoss.org/web/ROKFOSS.png" alt="ROKFOSS">
-            </a>
-        </div>
-    </nav>
 
-    <main id="main" class="main-container" tabindex="-1">
-        <div class="content-wrapper">
-            <h1>PASTEBOX</h1>
-            <p class="subtitle">curl 기반 텍스트/로그 공유 서비스</p>
-            <p class="description">curl을 사용하여 텍스트나 로그를 업로드하면 5자리의 무작위 URL이 생성됩니다. 생성된 임시 링크는 30일 후에 자동으로 삭제됩니다.</p>
+            .modal-textarea:focus {
+                border-color: var(--border-focus);
+            }
 
-            <div class="info-section">
-                <div class="info-item">
-                    <span class="info-label">텍스트 업로드</span>
-                    <span class="info-value">echo "hello" | curl -X POST --data-binary @- {{ .BaseURL }}/</span>
-                </div>
-                <div class="info-item">
-                    <span class="info-label">명령어 출력 업로드</span>
-                    <span class="info-value">ifconfig | curl -X POST --data-binary @- {{ .BaseURL }}/</span>
-                </div>
-                <div class="info-item">
-                    <span class="info-label">텍스트 파일 업로드</span>
-                    <span class="info-value">curl -v --data-binary @test.txt {{ .BaseURL }}/</span>
-                </div>
-                <div class="info-item">
-                    <span class="info-label">비밀번호 보호 링크</span>
-                    <span class="info-value">curl -X POST --data-binary @secret.txt {{ .BaseURL }}/pw</span>
-                </div>
-                <div class="info-item">
-                    <span class="info-label">1회 열람 후 파기</span>
-                    <span class="info-value">ifconfig | curl -X POST --data-binary @- {{ .BaseURL }}/temp</span>
-                </div>
+            .file-dropzone {
+                border: 2px dashed var(--border-subtle);
+                border-radius: var(--radius-md);
+                padding: 40px 20px;
+                text-align: center;
+                margin-bottom: 16px;
+                cursor: pointer;
+                background: var(--bg-primary);
+                transition: all 0.15s ease;
+                display: block;
+            }
 
-                <div class="info-item">
-                    <span class="info-label">만료 정보</span>
-                    <span class="info-value">주소: {{ .BaseURL }}/AbC12
-만료일: 2026-06-24T05:10:26Z
-삭제링크: {{ .BaseURL }}/AbC12?delete=DELETE_TOKEN</span>
-                </div>
-                <div class="info-item">
-                    <span class="info-label">수동 삭제</span>
-                    <span class="info-value">curl "{{ .BaseURL }}/AbC12?delete=DELETE_TOKEN"</span>
-                </div>
+            .file-dropzone:hover,
+            .file-dropzone:focus-within {
+                border-color: var(--border-focus);
+                background: var(--bg-surface-hover);
+                outline: none;
+            }
+
+            .file-dropzone input[type="file"] {
+                display: none;
+            }
+
+            /* Responsive */
+            @media (max-width: 768px) {
+                .navbar {
+                    padding: calc(16px + env(safe-area-inset-top)) 20px 16px;
+                }
+                .navbar-brand img {
+                    height: 28px;
+                }
+                .main-container {
+                    padding-top: 100px;
+                }
+                h1 {
+                    font-size: 2.25rem;
+                }
+                .subtitle {
+                    font-size: 1.125rem;
+                }
+
+                .command-header {
+                    flex-direction: column;
+                    align-items: flex-start;
+                    gap: 8px;
+                }
+
+                .copy-btn {
+                    align-self: flex-end;
+                    width: 100%;
+                }
+
+                .info-row {
+                    flex-direction: column;
+                    gap: 4px;
+                }
+
+                .info-value {
+                    text-align: left;
+                    width: 100%;
+                }
+
+                .actions {
+                    flex-direction: column;
+                }
+                .button {
+                    width: 100%;
+                }
+            }
+
+            @media (max-width: 480px) {
+                .modal-content {
+                    padding: 24px 20px;
+                }
+                .file-dropzone {
+                    padding: 24px 16px;
+                }
+                .modal-textarea {
+                    height: 160px;
+                }
+            }
+
+            @media (prefers-reduced-motion: reduce) {
+                *,
+                *::before,
+                *::after {
+                    animation-duration: 0.01ms !important;
+                    animation-iteration-count: 1 !important;
+                    transition-duration: 0.01ms !important;
+                }
+            }
+        </style>
+    </head>
+    <body>
+        <nav class="navbar" id="navbar">
+            <div class="container">
+                <a class="navbar-brand" href="/">
+                    <img
+                        data-cfasync="false"
+                        loading="eager"
+                        decoding="async"
+                        src="https://cdn.krfoss.org/web/ROKFOSS.png"
+                        alt="ROKFOSS"
+                    />
+                </a>
             </div>
+        </nav>
 
-            <div class="actions">
-                <button class="button button-primary" onclick="openUploadModal(event)">웹에서 직접 업로드</button>
-                <button class="button" onclick="copyExample(this)">curl 예시 복사</button>
-            </div>
-
-            <div class="footer-text">
-                <a href="#" onclick="openToSModal(event)" style="color: inherit; text-decoration: underline; cursor: pointer;">서비스 이용 약관</a>
-            </div>
-        </div>
-    </main>
-
-    <!-- ToS Modal -->
-    <div class="modal-overlay" id="tosModal" onclick="if(event.target===this) closeToSModal()">
-        <div class="modal-content">
-            <h2 class="modal-title">서비스 이용 약관</h2>
-            <div class="modal-body">
-                본 서비스는 임시 텍스트, 코드 및 로그 공유를 목적으로 제공됩니다.<br><br>
-                개인 클라우드 스토리지 용도 등 본래 목적에 어긋나는 악의적인 대용량 데이터 업로드 및 서비스 남용 시, 사전 통보 없이 데이터가 즉시 삭제되거나 서비스 이용이 영구적으로 차단될 수 있습니다.
-            </div>
-            <button class="button modal-close" onclick="closeToSModal()">확인</button>
-        </div>
-    </div>
-
-    <!-- Upload Modal -->
-    <div class="modal-overlay" id="uploadModal" onclick="if(event.target===this) closeUploadModal()">
-        <div class="modal-content" style="max-width: 600px;">
-            <h2 class="modal-title">웹 업로드</h2>
-            <div class="modal-body" id="uploadFormBody">
-                <div style="display: flex; gap: 10px; margin-bottom: 20px;">
-                    <button class="button button-primary" id="tabTextBtn" onclick="switchTab('text')" style="flex:1;">텍스트 입력</button>
-                    <button class="button" id="tabFileBtn" onclick="switchTab('file')" style="flex:1;">파일 선택</button>
+        <main id="main" class="main-container" tabindex="-1">
+            <div class="content-wrapper">
+                <div class="hero">
+                    <h1>PASTEBOX</h1>
+                    <p class="subtitle">curl 기반 텍스트/로그 공유 서비스</p>
+                    <p class="description">
+                        curl을 사용하여 텍스트나 로그를 업로드하면 5자리의
+                        무작위 URL이 생성됩니다. 생성된 임시 링크는 30일 후에
+                        자동으로 삭제됩니다.
+                    </p>
                 </div>
-                
-                <div id="textUploadArea">
-                    <textarea id="uploadText" placeholder="여기에 텍스트나 로그를 붙여넣으세요..." style="width: 100%; height: 200px; background: #1a1a1a; color: #e5e5e5; border: 1px solid rgba(84,84,88,0.4); border-radius: 8px; padding: 12px; font-family: monospace; resize: vertical; margin-bottom: 16px; outline: none;"></textarea>
-                </div>
-                
-                <div id="fileUploadArea" style="display: none;">
-                    <div style="border: 2px dashed rgba(84,84,88,0.4); border-radius: 8px; padding: 40px 20px; text-align: center; margin-bottom: 16px; cursor: pointer; background: #1a1a1a; transition: background 0.2s;" onclick="document.getElementById('uploadFile').click()" onmouseover="this.style.background='#2c2c2e'" onmouseout="this.style.background='#1a1a1a'">
-                        <p style="margin: 0; color: #aaa;">클릭하여 텍스트 파일을 선택하세요.</p>
-                        <input type="file" id="uploadFile" style="display: none;" onchange="updateFileName(this)">
-                        <p id="fileNameDisplay" style="margin-top: 10px; color: #06b6d4; font-weight: bold; font-size: 14px;"></p>
+
+                <div class="commands-section">
+                    <div class="command-block">
+                        <div class="command-header">
+                            <span class="command-label">텍스트 업로드</span>
+                            <button
+                                class="copy-btn"
+                                onclick="copyToClipboard('echo &quot;hello&quot; | curl -X POST --data-binary @- {{ .BaseURL }}/', this)"
+                            >
+                                <svg
+                                    width="14"
+                                    height="14"
+                                    viewBox="0 0 24 24"
+                                    fill="none"
+                                    stroke="currentColor"
+                                    stroke-width="2"
+                                    stroke-linecap="round"
+                                    stroke-linejoin="round"
+                                >
+                                    <rect
+                                        x="9"
+                                        y="9"
+                                        width="13"
+                                        height="13"
+                                        rx="2"
+                                        ry="2"
+                                    ></rect>
+                                    <path
+                                        d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"
+                                    ></path>
+                                </svg>
+                                복사
+                            </button>
+                        </div>
+                        <code class="command-code"
+                            >echo "hello" | curl -X POST --data-binary @- {{
+                            .BaseURL }}/</code
+                        >
+                    </div>
+
+                    <div class="command-block">
+                        <div class="command-header">
+                            <span class="command-label"
+                                >명령어 출력 업로드</span
+                            >
+                            <button
+                                class="copy-btn"
+                                onclick="copyToClipboard('ifconfig | curl -X POST --data-binary @- {{ .BaseURL }}/', this)"
+                            >
+                                <svg
+                                    width="14"
+                                    height="14"
+                                    viewBox="0 0 24 24"
+                                    fill="none"
+                                    stroke="currentColor"
+                                    stroke-width="2"
+                                    stroke-linecap="round"
+                                    stroke-linejoin="round"
+                                >
+                                    <rect
+                                        x="9"
+                                        y="9"
+                                        width="13"
+                                        height="13"
+                                        rx="2"
+                                        ry="2"
+                                    ></rect>
+                                    <path
+                                        d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"
+                                    ></path>
+                                </svg>
+                                복사
+                            </button>
+                        </div>
+                        <code class="command-code"
+                            >ifconfig | curl -X POST --data-binary @- {{
+                            .BaseURL }}/</code
+                        >
+                    </div>
+
+                    <div class="command-block">
+                        <div class="command-header">
+                            <span class="command-label"
+                                >텍스트 파일 업로드</span
+                            >
+                            <button
+                                class="copy-btn"
+                                onclick="copyToClipboard('curl -v --data-binary @test.txt {{ .BaseURL }}/', this)"
+                            >
+                                <svg
+                                    width="14"
+                                    height="14"
+                                    viewBox="0 0 24 24"
+                                    fill="none"
+                                    stroke="currentColor"
+                                    stroke-width="2"
+                                    stroke-linecap="round"
+                                    stroke-linejoin="round"
+                                >
+                                    <rect
+                                        x="9"
+                                        y="9"
+                                        width="13"
+                                        height="13"
+                                        rx="2"
+                                        ry="2"
+                                    ></rect>
+                                    <path
+                                        d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"
+                                    ></path>
+                                </svg>
+                                복사
+                            </button>
+                        </div>
+                        <code class="command-code"
+                            >curl -v --data-binary @test.txt {{ .BaseURL
+                            }}/</code
+                        >
+                    </div>
+
+                    <div class="command-block">
+                        <div class="command-header">
+                            <span class="command-label"
+                                >비밀번호 보호 링크</span
+                            >
+                            <button
+                                class="copy-btn"
+                                onclick="copyToClipboard('curl -X POST --data-binary @secret.txt {{ .BaseURL }}/pw', this)"
+                            >
+                                <svg
+                                    width="14"
+                                    height="14"
+                                    viewBox="0 0 24 24"
+                                    fill="none"
+                                    stroke="currentColor"
+                                    stroke-width="2"
+                                    stroke-linecap="round"
+                                    stroke-linejoin="round"
+                                >
+                                    <rect
+                                        x="9"
+                                        y="9"
+                                        width="13"
+                                        height="13"
+                                        rx="2"
+                                        ry="2"
+                                    ></rect>
+                                    <path
+                                        d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"
+                                    ></path>
+                                </svg>
+                                복사
+                            </button>
+                        </div>
+                        <code class="command-code"
+                            >curl -X POST --data-binary @secret.txt {{ .BaseURL
+                            }}/pw</code
+                        >
+                    </div>
+
+                    <div class="command-block">
+                        <div class="command-header">
+                            <span class="command-label">1회 열람 후 파기</span>
+                            <button
+                                class="copy-btn"
+                                onclick="copyToClipboard('ifconfig | curl -X POST --data-binary @- {{ .BaseURL }}/temp', this)"
+                            >
+                                <svg
+                                    width="14"
+                                    height="14"
+                                    viewBox="0 0 24 24"
+                                    fill="none"
+                                    stroke="currentColor"
+                                    stroke-width="2"
+                                    stroke-linecap="round"
+                                    stroke-linejoin="round"
+                                >
+                                    <rect
+                                        x="9"
+                                        y="9"
+                                        width="13"
+                                        height="13"
+                                        rx="2"
+                                        ry="2"
+                                    ></rect>
+                                    <path
+                                        d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"
+                                    ></path>
+                                </svg>
+                                복사
+                            </button>
+                        </div>
+                        <code class="command-code"
+                            >ifconfig | curl -X POST --data-binary @- {{
+                            .BaseURL }}/temp</code
+                        >
                     </div>
                 </div>
 
-                <div style="background: rgba(0,0,0,0.2); padding: 16px; border-radius: 8px; margin-bottom: 24px;">
-                    <label style="display: flex; align-items: center; cursor: pointer; margin-bottom: 12px;">
-                        <input type="checkbox" id="optPassword" style="margin-right: 10px; width: 16px; height: 16px; accent-color: #06b6d4;">
-                        <span style="font-size: 14px; color: #e5e5e5;">비밀번호로 보호하기</span>
-                    </label>
-                    <label style="display: flex; align-items: center; cursor: pointer;">
-                        <input type="checkbox" id="optOnce" style="margin-right: 10px; width: 16px; height: 16px; accent-color: #06b6d4;">
-                        <span style="font-size: 14px; color: #e5e5e5;">1회 열람 후 즉시 파기</span>
-                    </label>
+                <div class="info-block">
+                    <h3 class="info-block-title">링크 관리</h3>
+                    <div class="info-row">
+                        <span class="info-key">만료 정보</span>
+                        <span class="info-value"
+                            >주소: {{ .BaseURL }}/AbC12<br />만료일:
+                            2026-06-24T05:10:26Z<br />삭제링크: {{ .BaseURL
+                            }}/AbC12?delete=DELETE_TOKEN</span
+                        >
+                    </div>
+                    <div class="info-row">
+                        <span class="info-key">수동 삭제</span>
+                        <span class="info-value"
+                            >curl "{{ .BaseURL
+                            }}/AbC12?delete=DELETE_TOKEN"</span
+                        >
+                    </div>
                 </div>
 
-                <button class="button button-primary" id="btnDoUpload" onclick="submitUpload()" style="width: 100%;">업로드 시작</button>
-                <div id="uploadError" style="color: #ef4444; margin-top: 12px; font-size: 14px; display: none; text-align: left; white-space: pre-wrap; word-break: break-all; max-height: 150px; overflow-y: auto; background: rgba(239, 68, 68, 0.1); padding: 10px; border-radius: 6px; border: 1px solid rgba(239, 68, 68, 0.3);"></div>
+                <div class="actions">
+                    <button
+                        class="button button-primary"
+                        onclick="openUploadModal(event)"
+                    >
+                        웹에서 직접 업로드
+                    </button>
+                    <button
+                        class="button"
+                        onclick="copyToClipboard('curl -v --data-binary @test.txt {{ .BaseURL }}/', this)"
+                    >
+                        기본 curl 예시 복사
+                    </button>
+                </div>
+
+                <div class="footer-text">
+                    <a href="#" onclick="openToSModal(event)"
+                        >서비스 이용 약관</a
+                    >
+                </div>
             </div>
-            
-            <div class="modal-body" id="uploadResultBody" style="display: none;">
-                <div style="background: #1a1a1a; padding: 20px; border-radius: 8px; border: 1px solid rgba(84,84,88,0.4); margin-bottom: 20px;">
-                    <p style="margin: 0 0 8px 0; font-size: 12px; color: #aaa;">공유 링크 (주소)</p>
-                    <a id="resLink" href="#" target="_blank" style="color: #06b6d4; font-size: 18px; font-weight: bold; text-decoration: none; display: block; margin-bottom: 16px; word-break: break-all;"></a>
-                    
-                    <div id="resPasswordWrap" style="display: none; margin-bottom: 16px;">
-                        <p style="margin: 0 0 4px 0; font-size: 12px; color: #aaa;">비밀번호</p>
-                        <p id="resPassword" style="margin: 0; color: #fbbf24; font-family: monospace; font-size: 16px; font-weight: bold;"></p>
+        </main>
+
+        <!-- ToS Modal -->
+        <dialog
+            id="tosModal"
+            class="modal-dialog"
+            onclick="if (event.target === this) this.close();"
+        >
+            <div class="modal-content">
+                <h2 class="modal-title">서비스 이용 약관</h2>
+                <div class="modal-body">
+                    본 서비스는 임시 텍스트, 코드 및 로그 공유를 목적으로
+                    제공됩니다.<br /><br />
+                    개인 클라우드 스토리지 용도 등 본래 목적에 어긋나는 악의적인
+                    대용량 데이터 업로드 및 서비스 남용 시, 사전 통보 없이
+                    데이터가 즉시 삭제되거나 서비스 이용이 영구적으로 차단될 수
+                    있습니다.
+                </div>
+                <button class="button modal-close" onclick="closeToSModal()">
+                    확인
+                </button>
+            </div>
+        </dialog>
+
+        <!-- Upload Modal -->
+        <dialog
+            id="uploadModal"
+            class="modal-dialog"
+            onclick="if (event.target === this) this.close();"
+        >
+            <div class="modal-content">
+                <h2 class="modal-title">웹 업로드</h2>
+                <div class="modal-body" id="uploadFormBody">
+                    <div style="display: flex; gap: 8px; margin-bottom: 20px">
+                        <button
+                            class="button button-primary"
+                            id="tabTextBtn"
+                            onclick="switchTab('text')"
+                            style="flex: 1"
+                        >
+                            텍스트 입력
+                        </button>
+                        <button
+                            class="button"
+                            id="tabFileBtn"
+                            onclick="switchTab('file')"
+                            style="flex: 1"
+                        >
+                            파일 선택
+                        </button>
                     </div>
 
-                    <p style="margin: 0 0 4px 0; font-size: 12px; color: #aaa;">수동 삭제 링크</p>
-                    <p id="resDelete" style="margin: 0; color: #ef4444; font-family: monospace; font-size: 12px; word-break: break-all;"></p>
+                    <div id="textUploadArea">
+                        <label for="uploadText" class="sr-only"
+                            >업로드할 텍스트</label
+                        >
+                        <textarea
+                            id="uploadText"
+                            class="modal-textarea"
+                            placeholder="여기에 텍스트나 로그를 붙여넣으세요..."
+                        ></textarea>
+                    </div>
+
+                    <div id="fileUploadArea" style="display: none">
+                        <label class="file-dropzone" for="uploadFile">
+                            <p
+                                style="
+                                    margin: 0;
+                                    color: var(--text-secondary);
+                                    font-size: 0.9375rem;
+                                    pointer-events: none;
+                                "
+                            >
+                                클릭하여 텍스트 파일을 선택하세요.
+                            </p>
+                            <input
+                                type="file"
+                                id="uploadFile"
+                                onchange="updateFileName(this)"
+                            />
+                            <p
+                                id="fileNameDisplay"
+                                style="
+                                    margin-top: 12px;
+                                    color: var(--accent);
+                                    font-family: ui-monospace, monospace;
+                                    font-size: 0.875rem;
+                                    font-weight: 500;
+                                    pointer-events: none;
+                                "
+                            ></p>
+                        </label>
+                    </div>
+
+                    <div
+                        style="
+                            background: var(--bg-primary);
+                            border: 1px solid var(--border-subtle);
+                            padding: 16px;
+                            border-radius: var(--radius-sm);
+                            margin-bottom: 24px;
+                        "
+                    >
+                        <label
+                            style="
+                                display: flex;
+                                align-items: center;
+                                cursor: pointer;
+                                margin-bottom: 12px;
+                            "
+                        >
+                            <input
+                                type="checkbox"
+                                id="optPassword"
+                                style="
+                                    margin-right: 10px;
+                                    width: 16px;
+                                    height: 16px;
+                                    accent-color: var(--accent);
+                                    cursor: pointer;
+                                "
+                            />
+                            <span
+                                style="
+                                    font-size: 0.9375rem;
+                                    color: var(--text-primary);
+                                "
+                                >비밀번호로 보호하기</span
+                            >
+                        </label>
+                        <label
+                            style="
+                                display: flex;
+                                align-items: center;
+                                cursor: pointer;
+                                margin: 0;
+                            "
+                        >
+                            <input
+                                type="checkbox"
+                                id="optOnce"
+                                style="
+                                    margin-right: 10px;
+                                    width: 16px;
+                                    height: 16px;
+                                    accent-color: var(--accent);
+                                    cursor: pointer;
+                                "
+                            />
+                            <span
+                                style="
+                                    font-size: 0.9375rem;
+                                    color: var(--text-primary);
+                                "
+                                >1회 열람 후 즉시 파기</span
+                            >
+                        </label>
+                    </div>
+
+                    <button
+                        class="button button-primary"
+                        id="btnDoUpload"
+                        onclick="submitUpload()"
+                        style="width: 100%"
+                    >
+                        업로드 시작
+                    </button>
+                    <div
+                        id="uploadError"
+                        style="
+                            color: var(--danger);
+                            margin-top: 12px;
+                            font-size: 0.875rem;
+                            display: none;
+                            text-align: left;
+                            white-space: pre-wrap;
+                            word-break: break-all;
+                            max-height: 150px;
+                            overflow-y: auto;
+                            background: rgba(239, 68, 68, 0.1);
+                            padding: 12px;
+                            border-radius: var(--radius-sm);
+                            border: 1px solid rgba(239, 68, 68, 0.3);
+                        "
+                    ></div>
                 </div>
-                <button class="button" onclick="closeUploadModal()" style="width: 100%;">닫기</button>
+
+                <div
+                    class="modal-body"
+                    id="uploadResultBody"
+                    style="display: none"
+                >
+                    <div
+                        style="
+                            background: var(--bg-primary);
+                            border: 1px solid var(--border-subtle);
+                            padding: 20px;
+                            border-radius: var(--radius-md);
+                            margin-bottom: 24px;
+                        "
+                    >
+                        <p
+                            style="
+                                margin: 0 0 8px 0;
+                                font-size: 0.75rem;
+                                color: var(--text-secondary);
+                                text-transform: uppercase;
+                                letter-spacing: 0.05em;
+                                font-weight: 600;
+                            "
+                        >
+                            공유 링크
+                        </p>
+                        <a
+                            id="resLink"
+                            href="#"
+                            target="_blank"
+                            style="
+                                color: var(--accent);
+                                font-size: 1.125rem;
+                                font-weight: 600;
+                                text-decoration: none;
+                                display: block;
+                                margin-bottom: 20px;
+                                word-break: break-all;
+                                font-family: ui-monospace, monospace;
+                            "
+                        ></a>
+
+                        <div
+                            id="resPasswordWrap"
+                            style="
+                                display: none;
+                                margin-bottom: 20px;
+                                padding-top: 20px;
+                                border-top: 1px solid var(--border-subtle);
+                            "
+                        >
+                            <p
+                                style="
+                                    margin: 0 0 8px 0;
+                                    font-size: 0.75rem;
+                                    color: var(--text-secondary);
+                                    text-transform: uppercase;
+                                    letter-spacing: 0.05em;
+                                    font-weight: 600;
+                                "
+                            >
+                                비밀번호
+                            </p>
+                            <p
+                                id="resPassword"
+                                style="
+                                    margin: 0;
+                                    color: #fbbf24;
+                                    font-family: ui-monospace, monospace;
+                                    font-size: 1.25rem;
+                                    font-weight: 700;
+                                    letter-spacing: 0.05em;
+                                "
+                            ></p>
+                        </div>
+
+                        <p
+                            style="
+                                margin: 0 0 8px 0;
+                                font-size: 0.75rem;
+                                color: var(--text-secondary);
+                                text-transform: uppercase;
+                                letter-spacing: 0.05em;
+                                font-weight: 600;
+                                padding-top: 20px;
+                                border-top: 1px solid var(--border-subtle);
+                            "
+                        >
+                            수동 삭제 링크
+                        </p>
+                        <p
+                            id="resDelete"
+                            style="
+                                margin: 0;
+                                color: var(--danger);
+                                font-family: ui-monospace, monospace;
+                                font-size: 0.8125rem;
+                                word-break: break-all;
+                                line-height: 1.5;
+                            "
+                        ></p>
+                    </div>
+                    <button
+                        class="button modal-close"
+                        onclick="closeUploadModal()"
+                    >
+                        닫기
+                    </button>
+                </div>
             </div>
-        </div>
-    </div>
+        </dialog>
 
-    <script>
-        function openToSModal(e) {
-            e.preventDefault();
-            document.getElementById('tosModal').classList.add('active');
-        }
-
-        function closeToSModal() {
-            document.getElementById('tosModal').classList.remove('active');
-        }
-
-        function copyExample(btn) {
-            const text = 'curl -v --data-binary @test.txt {{ .BaseURL }}/';
-            navigator.clipboard.writeText(text).then(() => {
-                const originalText = btn.innerText;
-                btn.innerText = "복사 완료";
-                setTimeout(() => {
-                    btn.innerText = originalText;
-                }, 1500);
-            }).catch(err => {
-                const textarea = document.createElement("textarea");
-                textarea.value = text;
-                textarea.style.position = "fixed";
-                textarea.style.left = "-9999px";
-                document.body.appendChild(textarea);
-                textarea.select();
-                document.execCommand("copy");
-                document.body.removeChild(textarea);
-                
-                const originalText = btn.innerText;
-                btn.innerText = "복사 완료";
-                setTimeout(() => {
-                    btn.innerText = originalText;
-                }, 1500);
-            });
-        }
-
-        let currentUploadMode = 'text';
-
-        function openUploadModal(e) {
-            e.preventDefault();
-            document.getElementById('uploadModal').classList.add('active');
-            document.getElementById('uploadFormBody').style.display = 'block';
-            document.getElementById('uploadResultBody').style.display = 'none';
-            document.getElementById('uploadError').style.display = 'none';
-            
-            document.getElementById('uploadText').value = '';
-            document.getElementById('uploadFile').value = '';
-            document.getElementById('fileNameDisplay').innerText = '';
-            document.getElementById('optPassword').checked = false;
-            document.getElementById('optOnce').checked = false;
-        }
-
-        function closeUploadModal() {
-            document.getElementById('uploadModal').classList.remove('active');
-        }
-
-        function switchTab(mode) {
-            currentUploadMode = mode;
-            if (mode === 'text') {
-                document.getElementById('textUploadArea').style.display = 'block';
-                document.getElementById('fileUploadArea').style.display = 'none';
-                document.getElementById('tabTextBtn').classList.add('button-primary');
-                document.getElementById('tabFileBtn').classList.remove('button-primary');
-            } else {
-                document.getElementById('textUploadArea').style.display = 'none';
-                document.getElementById('fileUploadArea').style.display = 'block';
-                document.getElementById('tabFileBtn').classList.add('button-primary');
-                document.getElementById('tabTextBtn').classList.remove('button-primary');
-            }
-        }
-
-        function updateFileName(input) {
-            if (input.files && input.files.length > 0) {
-                document.getElementById('fileNameDisplay').innerText = "선택된 파일: " + input.files[0].name;
-            } else {
-                document.getElementById('fileNameDisplay').innerText = '';
-            }
-        }
-
-        async function submitUpload() {
-            const btn = document.getElementById('btnDoUpload');
-            const errDiv = document.getElementById('uploadError');
-            errDiv.style.display = 'none';
-            
-            let data = null;
-            if (currentUploadMode === 'text') {
-                const text = document.getElementById('uploadText').value;
-                if (!text.trim()) {
-                    errDiv.innerText = "텍스트를 입력해주세요.";
-                    errDiv.style.display = 'block';
-                    return;
-                }
-                data = text;
-            } else {
-                const fileInput = document.getElementById('uploadFile');
-                if (!fileInput.files || fileInput.files.length === 0) {
-                    errDiv.innerText = "파일을 선택해주세요.";
-                    errDiv.style.display = 'block';
-                    return;
-                }
-                data = fileInput.files[0];
-            }
-
-            const usePw = document.getElementById('optPassword').checked;
-            const useTemp = document.getElementById('optOnce').checked;
-            
-            let targetUrl = '/';
-            if (usePw && useTemp) targetUrl = '/pw/temp';
-            else if (usePw) targetUrl = '/pw';
-            else if (useTemp) targetUrl = '/temp';
-
-            btn.disabled = true;
-            btn.innerText = "업로드 중...";
-
-            try {
-                const res = await fetch(targetUrl, {
-                    method: 'POST',
-                    body: data
-                });
-
-                const textRes = await res.text();
-                if (!res.ok) {
-                    throw new Error(textRes || '업로드 실패');
-                }
-
-                const lines = textRes.split('\n');
-                let linkUrl = '';
-                let pw = '';
-                let delUrl = '';
-
-                for (const line of lines) {
-                    if (line.startsWith('주소: ')) linkUrl = line.substring(4).trim();
-                    else if (line.startsWith('비밀번호: ')) pw = line.substring(6).trim();
-                    else if (line.startsWith('삭제링크: ')) delUrl = line.substring(6).trim();
-                }
-
-                if (!linkUrl) {
-                     throw new Error('올바른 응답을 받지 못했습니다.\n' + textRes);
-                }
-
-                document.getElementById('resLink').href = linkUrl;
-                document.getElementById('resLink').innerText = linkUrl;
-                document.getElementById('resDelete').innerText = delUrl;
-                
-                if (pw) {
-                    document.getElementById('resPasswordWrap').style.display = 'block';
-                    document.getElementById('resPassword').innerText = pw;
+        <script>
+            window.addEventListener("scroll", () => {
+                const navbar = document.getElementById("navbar");
+                if (window.scrollY > 10) {
+                    navbar.classList.add("scrolled");
                 } else {
-                    document.getElementById('resPasswordWrap').style.display = 'none';
+                    navbar.classList.remove("scrolled");
                 }
+            });
 
-                document.getElementById('uploadFormBody').style.display = 'none';
-                document.getElementById('uploadResultBody').style.display = 'block';
-
-            } catch (e) {
-                let errorMsg = e.message;
-                if (errorMsg.length > 300) {
-                    errorMsg = "알 수 없는 응답 형식으로 인해 업로드에 실패했습니다.\n(바이너리 파일이거나 서버 오류일 수 있습니다.)";
-                }
-                errDiv.innerText = errorMsg;
-                errDiv.style.display = 'block';
-            } finally {
-                btn.disabled = false;
-                btn.innerText = "업로드 시작";
+            function openToSModal(e) {
+                e.preventDefault();
+                document.getElementById("tosModal").showModal();
             }
-        }
-    </script>
-</body>
+
+            function closeToSModal() {
+                document.getElementById("tosModal").close();
+            }
+
+            function copyToClipboard(text, btn) {
+                navigator.clipboard
+                    .writeText(text)
+                    .then(() => {
+                        const originalHTML = btn.innerHTML;
+                        btn.classList.add("copied");
+                        btn.innerHTML = `<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"></polyline></svg> 복사됨`;
+                        setTimeout(() => {
+                            btn.classList.remove("copied");
+                            btn.innerHTML = originalHTML;
+                        }, 1500);
+                    })
+                    .catch(() => {
+                        const textarea = document.createElement("textarea");
+                        textarea.value = text;
+                        textarea.style.position = "fixed";
+                        textarea.style.left = "-9999px";
+                        document.body.appendChild(textarea);
+                        textarea.select();
+                        document.execCommand("copy");
+                        document.body.removeChild(textarea);
+
+                        const originalHTML = btn.innerHTML;
+                        btn.classList.add("copied");
+                        btn.innerHTML = `<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"></polyline></svg> 복사됨`;
+                        setTimeout(() => {
+                            btn.classList.remove("copied");
+                            btn.innerHTML = originalHTML;
+                        }, 1500);
+                    });
+            }
+
+            let currentUploadMode = "text";
+
+            function openUploadModal(e) {
+                e.preventDefault();
+                document.getElementById("uploadModal").showModal();
+                document.getElementById("uploadFormBody").style.display =
+                    "block";
+                document.getElementById("uploadResultBody").style.display =
+                    "none";
+                document.getElementById("uploadError").style.display = "none";
+
+                document.getElementById("uploadText").value = "";
+                document.getElementById("uploadFile").value = "";
+                document.getElementById("fileNameDisplay").innerText = "";
+                document.getElementById("optPassword").checked = false;
+                document.getElementById("optOnce").checked = false;
+            }
+
+            function closeUploadModal() {
+                document.getElementById("uploadModal").close();
+            }
+
+            function switchTab(mode) {
+                currentUploadMode = mode;
+                if (mode === "text") {
+                    document.getElementById("textUploadArea").style.display =
+                        "block";
+                    document.getElementById("fileUploadArea").style.display =
+                        "none";
+                    document
+                        .getElementById("tabTextBtn")
+                        .classList.add("button-primary");
+                    document
+                        .getElementById("tabFileBtn")
+                        .classList.remove("button-primary");
+                } else {
+                    document.getElementById("textUploadArea").style.display =
+                        "none";
+                    document.getElementById("fileUploadArea").style.display =
+                        "block";
+                    document
+                        .getElementById("tabFileBtn")
+                        .classList.add("button-primary");
+                    document
+                        .getElementById("tabTextBtn")
+                        .classList.remove("button-primary");
+                }
+            }
+
+            function updateFileName(input) {
+                if (input.files && input.files.length > 0) {
+                    document.getElementById("fileNameDisplay").innerText =
+                        "선택된 파일: " + input.files[0].name;
+                } else {
+                    document.getElementById("fileNameDisplay").innerText = "";
+                }
+            }
+
+            async function submitUpload() {
+                const btn = document.getElementById("btnDoUpload");
+                const errDiv = document.getElementById("uploadError");
+                errDiv.style.display = "none";
+
+                let data = null;
+                if (currentUploadMode === "text") {
+                    const text = document.getElementById("uploadText").value;
+                    if (!text.trim()) {
+                        errDiv.innerText = "텍스트를 입력해주세요.";
+                        errDiv.style.display = "block";
+                        return;
+                    }
+                    data = text;
+                } else {
+                    const fileInput = document.getElementById("uploadFile");
+                    if (!fileInput.files || fileInput.files.length === 0) {
+                        errDiv.innerText = "파일을 선택해주세요.";
+                        errDiv.style.display = "block";
+                        return;
+                    }
+                    data = fileInput.files[0];
+                }
+
+                const usePw = document.getElementById("optPassword").checked;
+                const useTemp = document.getElementById("optOnce").checked;
+
+                let targetUrl = "/";
+                if (usePw && useTemp) targetUrl = "/pw/temp";
+                else if (usePw) targetUrl = "/pw";
+                else if (useTemp) targetUrl = "/temp";
+
+                btn.disabled = true;
+                btn.innerText = "업로드 중...";
+
+                try {
+                    const res = await fetch(targetUrl, {
+                        method: "POST",
+                        body: data,
+                    });
+
+                    const textRes = await res.text();
+                    if (!res.ok) {
+                        throw new Error(textRes || "업로드 실패");
+                    }
+
+                    const lines = textRes.split("\n");
+                    let linkUrl = "";
+                    let pw = "";
+                    let delUrl = "";
+
+                    for (const line of lines) {
+                        if (line.startsWith("주소: "))
+                            linkUrl = line.substring(4).trim();
+                        else if (line.startsWith("비밀번호: "))
+                            pw = line.substring(6).trim();
+                        else if (line.startsWith("삭제링크: "))
+                            delUrl = line.substring(6).trim();
+                    }
+
+                    if (!linkUrl) {
+                        throw new Error(
+                            "올바른 응답을 받지 못했습니다.\n" + textRes,
+                        );
+                    }
+
+                    document.getElementById("resLink").href = linkUrl;
+                    document.getElementById("resLink").innerText = linkUrl;
+                    document.getElementById("resDelete").innerText = delUrl;
+
+                    if (pw) {
+                        document.getElementById(
+                            "resPasswordWrap",
+                        ).style.display = "block";
+                        document.getElementById("resPassword").innerText = pw;
+                    } else {
+                        document.getElementById(
+                            "resPasswordWrap",
+                        ).style.display = "none";
+                    }
+
+                    document.getElementById("uploadFormBody").style.display =
+                        "none";
+                    document.getElementById("uploadResultBody").style.display =
+                        "block";
+                } catch (e) {
+                    let errorMsg = e.message;
+                    if (errorMsg.length > 300) {
+                        errorMsg =
+                            "알 수 없는 응답 형식으로 인해 업로드에 실패했습니다.\n(바이너리 파일이거나 서버 오류일 수 있습니다.)";
+                    }
+                    errDiv.innerText = errorMsg;
+                    errDiv.style.display = "block";
+                } finally {
+                    btn.disabled = false;
+                    btn.innerText = "업로드 시작";
+                }
+            }
+        </script>
+    </body>
 </html>
