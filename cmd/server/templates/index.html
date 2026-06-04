@@ -321,6 +321,24 @@
             }
         }
     </style>
+    {{ if .HomeBgUrl }}
+    <style>
+        body {
+            background-image: url('{{ .HomeBgUrl }}');
+            background-size: cover;
+            background-position: center;
+            background-attachment: fixed;
+            background-repeat: no-repeat;
+        }
+        body::before {
+            content: "";
+            position: fixed;
+            top: 0; left: 0; right: 0; bottom: 0;
+            background: rgba(26, 26, 26, 0.75);
+            z-index: -1;
+        }
+    </style>
+    {{ end }}
 </head>
 <body>
     <nav class="navbar">

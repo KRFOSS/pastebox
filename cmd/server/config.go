@@ -23,6 +23,7 @@ type config struct {
 	MaxUploadSizeMB int64
 	RateLimitPerSec float64
 	RateBurst       float64
+	HomeBackgroundImage string
 }
 
 func loadConfig(path string) (*config, error) {
@@ -87,6 +88,8 @@ func loadConfig(path string) (*config, error) {
 			if v, err := strconv.ParseFloat(val, 64); err == nil && v > 0 {
 				cfg.RateBurst = v
 			}
+		case "HOME_BACKGROUND_IMAGE_URL":
+			cfg.HomeBackgroundImage = val
 		}
 	}
 

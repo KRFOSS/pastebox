@@ -137,6 +137,7 @@ func (a *app) adminHandler(w http.ResponseWriter, r *http.Request) {
 		"Limit":          limit,
 		"SortBy":         sortBy,
 		"Order":          order,
+		"HomeBgUrl":      a.getHomeBackgroundImage(),
 	})
 }
 
@@ -305,6 +306,50 @@ func (a *app) adminDeleteAllHandler(w http.ResponseWriter, r *http.Request) {
 		log.Printf("전체 삭제 실패: %v", err)
 		http.Error(w, "전체 삭제 중 오류가 발생했습니다.", http.StatusInternalServerError)
 		return
+	}
+
+	http.Redirect(w, r, "/ra", http.StatusSeeOther)
+}
+
+func (a *app) adminUpdateHomeBgHandler(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodPost {
+		http.Error(w, "허용되지 않은 메서드입니다.", http.StatusMethodNotAllowed)
+		return
+	}
+
+	if !a.isAdminAuthenticated(r) {
+		http.Error(w, "권한이 없습니다.", http.StatusUnauthorized)
+		return
+	}
+
+	if !a.validateCSRF(r) {
+		http.Error(w, "CSRF 토큰이 유효하지 않습니다.", http.StatusForbidden)
+		return
+	}
+
+	bgUrl := r.FormValue("bg_url")
+
+	a.mu.Lock()
+	a.homeBackgroundImage = bgUrl
+	a.mu.Unlock()
+
+	cfgData, err := os.ReadFile("config.conf")
+	if err == nil {
+		lines := strings.Split(string(cfgData), "\n")
+		found := false
+		for i, line := range lines {
+			if strings.HasPrefix(strings.TrimSpace(strings.ToUpper(line)), "HOME_BACKGROUND_IMAGE_URL=") {
+				lines[i] = fmt.Sprintf("HOME_BACKGROUND_IMAGE_URL=%s", bgUrl)
+				found = true
+				break
+			}
+		}
+		if !found {
+			lines = append(lines, fmt.Sprintf("HOME_BACKGROUND_IMAGE_URL=%s", bgUrl))
+		}
+		_ = os.WriteFile("config.conf", []byte(strings.Join(lines, "\n")), 0600)
+	} else {
+		_ = os.WriteFile("config.conf", []byte(fmt.Sprintf("HOME_BACKGROUND_IMAGE_URL=%s\n", bgUrl)), 0600)
 	}
 
 	http.Redirect(w, r, "/ra", http.StatusSeeOther)

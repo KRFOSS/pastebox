@@ -87,15 +87,16 @@ func main() {
 	indexTmpl, pasteTmpl, passwordTmpl, adminLoginTmpl, adminDashTmpl := loadTemplates()
 
 	a := &app{
-		store:          store,
-		index:          indexTmpl,
-		pasteView:      pasteTmpl,
-		password:       passwordTmpl,
-		adminLogin:     adminLoginTmpl,
-		adminDashboard: adminDashTmpl,
-		adminToken:     adminToken,
-		expireDays:     expireDays,
-		maxUploadSize:  maxUploadSizeMB * 1024 * 1024,
+		store:               store,
+		index:               indexTmpl,
+		pasteView:           pasteTmpl,
+		password:            passwordTmpl,
+		adminLogin:          adminLoginTmpl,
+		adminDashboard:      adminDashTmpl,
+		adminToken:          adminToken,
+		expireDays:          expireDays,
+		maxUploadSize:       maxUploadSizeMB * 1024 * 1024,
+		homeBackgroundImage: cfg.HomeBackgroundImage,
 	}
 
 	go func() {
@@ -120,6 +121,7 @@ func main() {
 	mux.HandleFunc("/ra/delete", a.adminDeleteHandler)
 	mux.HandleFunc("/ra/delete-all", a.adminDeleteAllHandler)
 	mux.HandleFunc("/ra/limit", a.adminUpdateLimitHandler)
+	mux.HandleFunc("/ra/home-bg", a.adminUpdateHomeBgHandler)
 
 	log.Printf("서버가 %s 주소에서 대기 중입니다", listenAddr)
 

@@ -29,14 +29,21 @@ type app struct {
 	adminDashboard *template.Template
 	adminToken    string
 	expireDays    int
-	maxUploadSize int64
-	mu            sync.RWMutex
+	maxUploadSize       int64
+	homeBackgroundImage string
+	mu                  sync.RWMutex
 }
 
 func (a *app) getMaxUploadSize() int64 {
 	a.mu.RLock()
 	defer a.mu.RUnlock()
 	return a.maxUploadSize
+}
+
+func (a *app) getHomeBackgroundImage() string {
+	a.mu.RLock()
+	defer a.mu.RUnlock()
+	return a.homeBackgroundImage
 }
 
 func (a *app) getStorageModeString() string {
@@ -100,7 +107,8 @@ func (a *app) indexHandler(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "text/html; charset=utf-8")
 
 	data := map[string]string{
-		"BaseURL": requestBaseURL(r),
+		"BaseURL":   requestBaseURL(r),
+		"HomeBgUrl": a.getHomeBackgroundImage(),
 	}
 
 	if err := a.index.Execute(w, data); err != nil {
