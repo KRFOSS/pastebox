@@ -151,7 +151,8 @@
             color: #858585;
             user-select: none;
             border-right: 1px solid rgba(84, 84, 88, 0.2);
-            width: 90px;
+            flex: 0 0 auto;
+            width: var(--line-number-width, 3.5rem);
             box-sizing: border-box;
             overflow: hidden;
             position: relative;
@@ -162,7 +163,7 @@
             top: 0;
             left: 0;
             right: 0;
-            padding: 20px 10px 20px 20px;
+            padding: 20px 12px 20px 16px;
             white-space: pre;
             text-align: right;
         }
@@ -388,6 +389,8 @@
         const lineHeight = 22;
         const paddingTop = 20;
         const paddingBottom = 20;
+        const lineNumberPadding = 28;
+        const lineNumberMinWidth = 56;
 
         let detectedLanguage = 'plaintext';
         let languageDetected = false;
@@ -423,6 +426,7 @@
                         lines = rawText.split('\n');
                         isSmallFile = lines.length <= 3000;
                         staticRendered = false;
+                        updateLineNumberWidth();
                         
                         const totalHeight = lines.length * lineHeight + paddingTop + paddingBottom;
                         spacer.style.height = totalHeight + 'px';
@@ -443,6 +447,7 @@
                 lines = rawText.split('\n');
                 isSmallFile = lines.length <= 3000;
                 staticRendered = false;
+                updateLineNumberWidth();
                 spacer.style.height = (lines.length * lineHeight + paddingTop + paddingBottom) + 'px';
                 render();
             } catch(e) {
@@ -461,6 +466,12 @@
                 detectedLanguage = result.language || 'plaintext';
                 languageDetected = true;
             }
+        }
+
+        function updateLineNumberWidth() {
+            const digitCount = Math.max(2, String(Math.max(lines.length, 1)).length);
+            const width = Math.max(lineNumberMinWidth, digitCount * 8 + lineNumberPadding);
+            document.documentElement.style.setProperty('--line-number-width', width + 'px');
         }
 
         function render() {
