@@ -31,7 +31,7 @@ var (
 )
 
 type Storage interface {
-	Create(r io.Reader, contentType string, usePassword bool, once bool) (meta Metadata, password string, deleteToken string, err error)
+	Create(r io.Reader, contentType string, usePassword bool, dataPolicy string, expiresAfter time.Duration) (meta Metadata, password string, deleteToken string, err error)
 	Open(id string, password string) (entry *Entry, err error)
 	Stat(id string, password string) (meta Metadata, err error)
 	Delete(id string, token string) error
@@ -80,7 +80,7 @@ func NewLocalStore(dataDir string, ttl time.Duration) (*LocalStore, error) {
 	}, nil
 }
 
-func (s *LocalStore) Create(r io.Reader, contentType string, usePassword bool, once bool) (Metadata, string, string, error) {
+func (s *LocalStore) Create(r io.Reader, contentType string, usePassword bool, dataPolicy string, expiresAfter time.Duration) (Metadata, string, string, error) {
 	id, path, err := s.reservePath()
 	if err != nil {
 		return Metadata{}, "", "", err
@@ -131,11 +131,21 @@ func (s *LocalStore) Create(r io.Reader, contentType string, usePassword bool, o
 
 	now := time.Now().UTC()
 
-	dataPolicy := "temporary"
-	if once {
-		dataPolicy = "once"
+	dataPolicy = strings.TrimSpace(dataPolicy)
+	if dataPolicy == "" {
+		dataPolicy = "temporary"
+	} else {
+		dataPolicy = strings.ToLower(dataPolicy)
 	}
-	expiresAt := now.Add(s.TTL)
+
+	expiresAt := time.Time{}
+	if !strings.EqualFold(dataPolicy, "permanent") {
+		ttl := s.TTL
+		if expiresAfter > 0 {
+			ttl = expiresAfter
+		}
+		expiresAt = now.Add(ttl)
+	}
 
 	meta := Metadata{
 		ID:              id,
@@ -598,7 +608,7 @@ func (s *DBStore) autoMigrate() error {
 	return nil
 }
 
-func (s *DBStore) Create(r io.Reader, contentType string, usePassword bool, once bool) (Metadata, string, string, error) {
+func (s *DBStore) Create(r io.Reader, contentType string, usePassword bool, dataPolicy string, expiresAfter time.Duration) (Metadata, string, string, error) {
 	var id string
 	var err error
 	for i := 0; i < 100; i++ {
@@ -647,11 +657,21 @@ func (s *DBStore) Create(r io.Reader, contentType string, usePassword bool, once
 	}
 
 	now := time.Now().UTC()
-	dataPolicy := "temporary"
-	if once {
-		dataPolicy = "once"
+	dataPolicy = strings.TrimSpace(dataPolicy)
+	if dataPolicy == "" {
+		dataPolicy = "temporary"
+	} else {
+		dataPolicy = strings.ToLower(dataPolicy)
 	}
-	expiresAt := now.Add(s.TTL)
+
+	expiresAt := time.Time{}
+	if !strings.EqualFold(dataPolicy, "permanent") {
+		ttl := s.TTL
+		if expiresAfter > 0 {
+			ttl = expiresAfter
+		}
+		expiresAt = now.Add(ttl)
+	}
 
 	meta := Metadata{
 		ID:              id,
@@ -851,7 +871,7 @@ func (s *DBStore) CleanupExpired() error {
 		DELETE FROM pastes 
 		WHERE (expires_at IS NOT NULL AND expires_at < ?)
 		   OR (expires_at IS NULL AND created_at < ?)
-		   OR (data_policy = 'permanent' AND created_at < ?)`, 
+		   OR (data_policy = 'permanent' AND created_at < ?)`,
 		now, cutoff, cutoff)
 	return err
 }
@@ -1133,7 +1153,7 @@ func checkSecret(secret, hash string) bool {
 	if strings.HasPrefix(hash, "$2a$") || strings.HasPrefix(hash, "$2b$") {
 		return bcrypt.CompareHashAndPassword([]byte(hash), []byte(secret)) == nil
 	}
-	
+
 	// Legacy SHA-256 Support
 	sum := sha256.Sum256([]byte(secret))
 	legacyHash := hex.EncodeToString(sum[:])

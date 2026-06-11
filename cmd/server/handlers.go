@@ -21,14 +21,14 @@ import (
 var ansiEscapeRegex = regexp.MustCompile(`\x1b\[[0-9;]*[a-zA-Z]`)
 
 type app struct {
-	store         pastebox.Storage
-	index         *template.Template
-	pasteView     *template.Template
-	password      *template.Template
-	adminLogin    *template.Template
-	adminDashboard *template.Template
-	adminToken    string
-	expireDays    int
+	store               pastebox.Storage
+	index               *template.Template
+	pasteView           *template.Template
+	password            *template.Template
+	adminLogin          *template.Template
+	adminDashboard      *template.Template
+	adminToken          string
+	expireDays          int
 	maxUploadSize       int64
 	homeBackgroundImage string
 	mu                  sync.RWMutex
@@ -62,10 +62,11 @@ func (a *app) handle(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	if r.URL.Path == "/" || r.URL.Path == "/temp" || r.URL.Path == "/pw" {
+	switch r.URL.Path {
+	case "/", "/temp", "/week", "/pw":
 		switch r.Method {
 		case http.MethodGet:
-			if r.URL.Path == "/temp" || r.URL.Path == "/pw" {
+			if r.URL.Path != "/" {
 				http.Redirect(w, r, "/", http.StatusTemporaryRedirect)
 				return
 			}
@@ -74,8 +75,25 @@ func (a *app) handle(w http.ResponseWriter, r *http.Request) {
 			if r.URL.Path == "/temp" {
 				r.Header.Set("data-policy", "once")
 			}
+			if r.URL.Path == "/week" {
+				r.Header.Set("data-policy", "week")
+			}
 			if r.URL.Path == "/pw" {
 				r.Header.Set("usepassword", "true")
+			}
+			a.uploadHandler(w, r)
+		default:
+			http.Error(w, "허용되지 않은 메서드입니다.", http.StatusMethodNotAllowed)
+		}
+		return
+	case "/pw/temp", "/pw/week":
+		switch r.Method {
+		case http.MethodPost, http.MethodPut:
+			r.Header.Set("usepassword", "true")
+			if r.URL.Path == "/pw/temp" {
+				r.Header.Set("data-policy", "once")
+			} else {
+				r.Header.Set("data-policy", "week")
 			}
 			a.uploadHandler(w, r)
 		default:
@@ -187,9 +205,13 @@ func (a *app) uploadHandler(w http.ResponseWriter, r *http.Request) {
 	if policy == "" && r.PostForm != nil {
 		policy = r.PostForm.Get("data-policy")
 	}
-	once := strings.EqualFold(strings.TrimSpace(policy), "once")
+	policy = strings.TrimSpace(policy)
+	expiresAfter := time.Duration(0)
+	if strings.EqualFold(policy, "week") {
+		expiresAfter = 7 * 24 * time.Hour
+	}
 
-	meta, password, deleteToken, err := a.store.Create(reader, contentType, usePassword, once)
+	meta, password, deleteToken, err := a.store.Create(reader, contentType, usePassword, policy, expiresAfter)
 	if err != nil {
 		log.Printf("업로드 실패: %v", err)
 
@@ -270,7 +292,7 @@ func (a *app) viewHandler(w http.ResponseWriter, r *http.Request, id string) {
 			http.Error(w, "비밀번호가 입력되지 않았습니다.", http.StatusBadRequest)
 			return
 		}
-		
+
 		_, err := a.store.Stat(id, password)
 		if err != nil {
 			if errors.Is(err, pastebox.ErrInvalidPassword) {
@@ -283,7 +305,7 @@ func (a *app) viewHandler(w http.ResponseWriter, r *http.Request, id string) {
 			http.NotFound(w, r)
 			return
 		}
-		
+
 		cookieName := fmt.Sprintf("paste_auth_%s", id)
 		http.SetCookie(w, &http.Cookie{
 			Name:     cookieName,
@@ -293,7 +315,7 @@ func (a *app) viewHandler(w http.ResponseWriter, r *http.Request, id string) {
 			SameSite: http.SameSiteStrictMode,
 			MaxAge:   3600,
 		})
-		
+
 		http.Redirect(w, r, "/"+id, http.StatusFound)
 		return
 	}

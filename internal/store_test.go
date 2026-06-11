@@ -22,7 +22,7 @@ func TestStoreBasic(t *testing.T) {
 	}
 
 	content := []byte("hello world")
-	meta, password, deleteToken, err := store.Create(bytes.NewReader(content), "text/plain", true, false)
+	meta, password, deleteToken, err := store.Create(bytes.NewReader(content), "text/plain", true, "temporary", 0)
 	if err != nil {
 		t.Fatalf("failed to create entry: %v", err)
 	}
@@ -35,6 +35,18 @@ func TestStoreBasic(t *testing.T) {
 	}
 	if deleteToken == "" {
 		t.Error("expected delete token")
+	}
+
+	weekMeta, _, _, err := store.Create(bytes.NewReader(content), "text/plain", false, "week", 7*24*time.Hour)
+	if err != nil {
+		t.Fatalf("failed to create week entry: %v", err)
+	}
+	if weekMeta.DataPolicy != "week" {
+		t.Fatalf("expected week policy, got %q", weekMeta.DataPolicy)
+	}
+	expectedWeekExpiresAt := weekMeta.CreatedAt.Add(7 * 24 * time.Hour)
+	if weekMeta.ExpiresAt.Before(expectedWeekExpiresAt.Add(-time.Second)) || weekMeta.ExpiresAt.After(expectedWeekExpiresAt.Add(time.Second)) {
+		t.Fatalf("expected week expiry near %s, got %s", expectedWeekExpiresAt, weekMeta.ExpiresAt)
 	}
 
 	// 잘못된 비밀번호로 조회 시도
@@ -95,7 +107,7 @@ func TestStoreConcurrency(t *testing.T) {
 			defer wg.Done()
 			for j := 0; j < iterations; j++ {
 				content := []byte("concurrency test data")
-				meta, password, deleteToken, err := store.Create(bytes.NewReader(content), "text/plain", true, false)
+				meta, password, deleteToken, err := store.Create(bytes.NewReader(content), "text/plain", true, "temporary", 0)
 				if err != nil {
 					t.Errorf("[g:%d, i:%d] Create failed: %v", gId, j, err)
 					return
@@ -153,11 +165,11 @@ func TestStoreAdmin(t *testing.T) {
 		t.Fatalf("failed to create store: %v", err)
 	}
 
-	meta1, _, _, err := store.Create(bytes.NewReader([]byte("paste 1")), "text/plain", false, false)
+	meta1, _, _, err := store.Create(bytes.NewReader([]byte("paste 1")), "text/plain", false, "temporary", 0)
 	if err != nil {
 		t.Fatalf("failed to create entry 1: %v", err)
 	}
-	meta2, _, _, err := store.Create(bytes.NewReader([]byte("paste 2")), "text/plain", false, false)
+	meta2, _, _, err := store.Create(bytes.NewReader([]byte("paste 2")), "text/plain", false, "temporary", 0)
 	if err != nil {
 		t.Fatalf("failed to create entry 2: %v", err)
 	}

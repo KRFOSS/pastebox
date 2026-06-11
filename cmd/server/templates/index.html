@@ -376,6 +376,10 @@
                     <span class="info-label">1회 열람 후 파기</span>
                     <span class="info-value">ifconfig | curl -X POST --data-binary @- {{ .BaseURL }}/temp</span>
                 </div>
+                <div class="info-item">
+                    <span class="info-label">1주 보관 후 자동 삭제</span>
+                    <span class="info-value">ifconfig | curl -X POST --data-binary @- {{ .BaseURL }}/week</span>
+                </div>
 
                 <div class="info-item">
                     <span class="info-label">만료 정보</span>
@@ -440,8 +444,12 @@
                         <span style="font-size: 14px; color: #e5e5e5;">비밀번호로 보호하기</span>
                     </label>
                     <label style="display: flex; align-items: center; cursor: pointer;">
-                        <input type="checkbox" id="optOnce" style="margin-right: 10px; width: 16px; height: 16px; accent-color: #06b6d4;">
+                        <input type="radio" name="retentionPolicy" id="optOnce" style="margin-right: 10px; width: 16px; height: 16px; accent-color: #06b6d4;">
                         <span style="font-size: 14px; color: #e5e5e5;">1회 열람 후 즉시 파기</span>
+                    </label>
+                    <label style="display: flex; align-items: center; cursor: pointer; margin-top: 12px;">
+                        <input type="radio" name="retentionPolicy" id="optWeek" style="margin-right: 10px; width: 16px; height: 16px; accent-color: #06b6d4;">
+                        <span style="font-size: 14px; color: #e5e5e5;">1주 보관 후 자동 삭제</span>
                     </label>
                 </div>
 
@@ -517,6 +525,7 @@
             document.getElementById('fileNameDisplay').innerText = '';
             document.getElementById('optPassword').checked = false;
             document.getElementById('optOnce').checked = false;
+            document.getElementById('optWeek').checked = false;
         }
 
         function closeUploadModal() {
@@ -572,11 +581,14 @@
 
             const usePw = document.getElementById('optPassword').checked;
             const useTemp = document.getElementById('optOnce').checked;
+            const useWeek = document.getElementById('optWeek').checked;
             
             let targetUrl = '/';
             if (usePw && useTemp) targetUrl = '/pw/temp';
+            else if (usePw && useWeek) targetUrl = '/pw/week';
             else if (usePw) targetUrl = '/pw';
             else if (useTemp) targetUrl = '/temp';
+            else if (useWeek) targetUrl = '/week';
 
             btn.disabled = true;
             btn.innerText = "업로드 중...";

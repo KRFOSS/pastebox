@@ -68,6 +68,13 @@ To create a paste that deletes itself after the first view, use the `data-policy
 echo "temporary secret" | curl -H "data-policy: once" -X POST --data-binary @- https://paste.krfoss.org/
 ```
 
+### 6. One-Week Retention
+To keep a paste for 7 days and then delete it automatically, use the `/week` upload path.
+
+```bash
+echo "retained for one week" | curl -X POST --data-binary @- https://paste.krfoss.org/week
+```
+
 ## Best Practices
 - Always use `--data-binary @-` when piping to prevent `curl` from stripping newlines or altering the payload.
 - Save the delete token and password (if applicable) immediately after upload.
