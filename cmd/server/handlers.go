@@ -14,6 +14,7 @@ import (
 	"strings"
 	"sync"
 	"time"
+	"unicode/utf8"
 
 	pastebox "pastebox/internal"
 )
@@ -181,11 +182,12 @@ func (a *app) uploadHandler(w http.ResponseWriter, r *http.Request) {
 	if n == 0 {
 		isText = true
 	} else {
-		detected := http.DetectContentType(buf[:n])
+		sample := stripANSIEscapeSequences(buf[:n])
+		detected := http.DetectContentType(sample)
 		if strings.HasPrefix(detected, "text/") || strings.Contains(detected, "json") {
 			isText = true
 		} else {
-			isText = looksLikeText(buf[:n])
+			isText = looksLikeText(sample)
 		}
 	}
 
@@ -476,6 +478,10 @@ func looksLikeText(buf []byte) bool {
 		return false
 	}
 
+	if utf8.Valid(buf) {
+		return true
+	}
+
 	bad := 0
 	for _, b := range buf {
 		if b < 0x20 && b != '\n' && b != '\r' && b != '\t' {
@@ -484,6 +490,15 @@ func looksLikeText(buf []byte) bool {
 	}
 
 	return bad*100 <= len(buf)*3
+}
+
+func stripANSIEscapeSequences(buf []byte) []byte {
+	if len(buf) == 0 {
+		return buf
+	}
+
+	cleaned := ansiEscapeRegex.ReplaceAllString(string(buf), "")
+	return []byte(cleaned)
 }
 
 func requestBaseURL(r *http.Request) string {
