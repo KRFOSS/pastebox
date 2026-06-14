@@ -49,14 +49,14 @@
 
   <main class="mx-auto max-w-[1600px] px-4 sm:px-6 lg:px-8 py-8">
     <!-- 정보 카드 섹션 -->
-    <div class="grid grid-cols-1 gap-4 md:grid-cols-3 mb-8">
+    <div class="grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-4 mb-8">
       <div class="rounded-2xl border border-zinc-900 bg-zinc-950/40 p-5 backdrop-blur-sm">
         <p class="text-xs font-medium text-zinc-500 uppercase tracking-wider">스토리지 상태</p>
         <p class="mt-2 text-2xl font-bold tracking-tight text-white uppercase">{{ if eq .StorageMode "db" }}DB 모드{{ else }}로컬 스토리지 모드{{ end }}</p>
       </div>
       <div class="rounded-2xl border border-zinc-900 bg-zinc-950/40 p-5 backdrop-blur-sm">
         <p class="text-xs font-medium text-zinc-500 uppercase tracking-wider">전체 항목 수</p>
-        <p class="mt-2 text-2xl font-bold tracking-tight text-white">{{ len .Pastes }}개</p>
+        <p class="mt-2 text-2xl font-bold tracking-tight text-white">{{ .TotalCount }}개</p>
       </div>
       <div class="rounded-2xl border border-zinc-900 bg-zinc-950/40 p-5 backdrop-blur-sm">
         <p class="text-xs font-medium text-zinc-500 uppercase tracking-wider mb-2">업로드 용량 제한 설정</p>
@@ -69,6 +69,14 @@
             <option value="GB">GB</option>
           </select>
           <button type="submit" class="rounded-lg bg-zinc-100 hover:bg-white text-black px-3 py-1 text-sm font-semibold transition">적용</button>
+        </form>
+      </div>
+      <div class="rounded-2xl border border-zinc-900 bg-zinc-950/40 p-5 backdrop-blur-sm">
+        <p class="text-xs font-medium text-zinc-500 uppercase tracking-wider mb-2">사용자 홈 배경 이미지</p>
+        <form action="/ra/home-bg" method="POST" class="flex items-center gap-2">
+          <input type="hidden" name="csrf_token" value="{{ .CSRFToken }}">
+          <input type="url" name="bg_url" value="{{ .HomeBgUrl }}" placeholder="이미지 URL 입력..." class="flex-1 min-w-0 rounded-lg border border-zinc-800 bg-zinc-900 px-2 py-1 text-sm text-white outline-none focus:border-zinc-700">
+          <button type="submit" class="shrink-0 rounded-lg bg-zinc-100 hover:bg-white text-black px-3 py-1 text-sm font-semibold transition">적용</button>
         </form>
       </div>
     </div>

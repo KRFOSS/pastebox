@@ -146,48 +146,53 @@
             position: relative;
         }
 
-        .line-numbers {
-            background-color: #1e1e1e;
-            color: #858585;
-            user-select: none;
-            border-right: 1px solid rgba(84, 84, 88, 0.2);
-            flex: 0 0 auto;
-            width: var(--line-number-width, 3.5rem);
-            box-sizing: border-box;
-            overflow: hidden;
-            position: relative;
-        }
-
-        .line-numbers-viewport {
-            position: absolute;
-            top: 0;
-            left: 0;
-            right: 0;
-            padding: 20px 12px 20px 16px;
-            white-space: pre;
-            text-align: right;
-        }
-
+        /* 단일 스크롤 컨테이너: 줄번호와 본문이 한 박스 안에서 함께 네이티브 스크롤됨 */
         .code-area {
             flex: 1;
             overflow: auto;
             position: relative;
             height: 100%;
+            width: 100%;
         }
 
+        /* 가상 스크롤 시 전체 스크롤 높이를 만들어 주는 요소 (대용량 파일 전용) */
         .spacer {
-            width: 1px;
-        }
-
-        .content-viewport {
             position: absolute;
             top: 0;
             left: 0;
-            right: 0;
+            width: 1px;
+            display: none;
+        }
+
+        /* 줄번호(gutter) + 본문을 함께 담아 하나의 단위로 움직이는 행 */
+        .render-row {
+            display: flex;
+            min-width: max-content;
+            min-height: 100%;
+        }
+
+        .gutter {
+            position: sticky;
+            left: 0;
+            z-index: 2;
+            flex: 0 0 auto;
+            width: var(--line-number-width, 3.5rem);
+            box-sizing: border-box;
+            background-color: #1e1e1e;
+            color: #858585;
+            border-right: 1px solid rgba(84, 84, 88, 0.2);
+            padding: 20px 12px 20px 16px;
+            white-space: pre;
+            text-align: right;
+            user-select: none;
+        }
+
+        .content-viewport {
+            flex: 0 0 auto;
+            min-width: 0;
             padding: 20px;
             color: #ffffff;
             white-space: pre;
-            pointer-events: auto;
             tab-size: 4;
             -moz-tab-size: 4;
         }
@@ -328,12 +333,12 @@
                 </div>
             </div>
             <div class="viewer-container" id="viewerContainer">
-                <div class="line-numbers">
-                    <div class="line-numbers-viewport" id="lineNumbers"></div>
-                </div>
                 <div class="code-area" id="codeArea">
                     <div class="spacer" id="spacer"></div>
-                    <div class="content-viewport" id="contentViewport"></div>
+                    <div class="render-row" id="renderLayer">
+                        <div class="gutter" id="lineNumbers"></div>
+                        <div class="content-viewport" id="contentViewport"></div>
+                    </div>
                 </div>
             </div>
             <div class="footer-text">
@@ -406,6 +411,7 @@
         const container = document.getElementById('viewerContainer');
         const codeArea = document.getElementById('codeArea');
         const spacer = document.getElementById('spacer');
+        const renderLayer = document.getElementById('renderLayer');
         const viewport = document.getElementById('contentViewport');
         const lineNumbersDiv = document.getElementById('lineNumbers');
 
@@ -497,23 +503,42 @@
             document.documentElement.style.setProperty('--line-number-width', width + 'px');
         }
 
+        // 소형 파일: 일반 흐름(네이티브 스크롤) / 대용량: 절대배치 + 가상 스크롤
+        function setMode(virtual) {
+            if (virtual) {
+                spacer.style.display = 'block';
+                renderLayer.style.position = 'absolute';
+                renderLayer.style.top = '0';
+                renderLayer.style.left = '0';
+                lineNumbersDiv.style.position = 'relative'; // 가상 모드에선 sticky 대신 수동 가로 고정
+            } else {
+                spacer.style.display = 'none';
+                renderLayer.style.position = 'static';
+                renderLayer.style.transform = 'none';
+                lineNumbersDiv.style.position = '';         // 일반 모드: CSS sticky 복원
+                lineNumbersDiv.style.transform = 'none';
+            }
+        }
+
+        function highlightInto(text) {
+            if (typeof hljs !== 'undefined' && detectedLanguage !== 'plaintext') {
+                try {
+                    viewport.innerHTML = hljs.highlight(text, { language: detectedLanguage, ignoreIllegals: true }).value;
+                    return;
+                } catch (e) { /* 강조 실패 시 평문으로 폴백 */ }
+            }
+            viewport.textContent = text;
+        }
+
         function render() {
-            if (wordWrapEnabled) return; // 가상 스크롤 중지
+            if (wordWrapEnabled) return; // 줄바꿈 모드에서는 가상 스크롤 중지
 
-            const scrollTop = codeArea.scrollTop;
-
+            // 소형 파일: 줄번호와 본문을 한 컨테이너에 전부 렌더 → 네이티브 스크롤로 항상 동기화 (JS 위치보정 없음)
             if (isSmallFile) {
                 if (!staticRendered) {
+                    setMode(false);
                     detectLang();
-                    if (typeof hljs !== 'undefined' && detectedLanguage !== 'plaintext') {
-                        try {
-                            viewport.innerHTML = hljs.highlight(rawText, { language: detectedLanguage, ignoreIllegals: true }).value;
-                        } catch (e) {
-                            viewport.textContent = rawText;
-                        }
-                    } else {
-                        viewport.textContent = rawText;
-                    }
+                    highlightInto(rawText);
                     let numStr = '';
                     for (let i = 1; i <= lines.length; i++) {
                         numStr += i + '\n';
@@ -521,12 +546,14 @@
                     lineNumbersDiv.textContent = numStr;
                     staticRendered = true;
                 }
-                
-                viewport.style.transform = "translate3d(0, 0, 0)";
-                lineNumbersDiv.style.transform = "translate3d(0, " + (-scrollTop) + "px, 0)";
-                return;
+                return; // 이후 스크롤은 브라우저 네이티브가 처리
             }
 
+            // 대용량 파일: 보이는 구간만 렌더. 줄번호+본문을 하나의 레이어로 함께 이동 → 세로 어긋남 원천 차단
+            setMode(true);
+
+            const scrollTop = codeArea.scrollTop;
+            const scrollLeft = codeArea.scrollLeft;
             const containerHeight = codeArea.clientHeight;
 
             let startIdx = Math.floor((scrollTop - paddingTop) / lineHeight) - 5;
@@ -535,30 +562,20 @@
             if (startIdx < 0) startIdx = 0;
             if (endIdx > lines.length) endIdx = lines.length;
 
-            const visibleLines = lines.slice(startIdx, endIdx);
-            const visibleText = visibleLines.join('\n');
-            
             detectLang();
-            
-            if (typeof hljs !== 'undefined' && detectedLanguage !== 'plaintext') {
-                try {
-                    viewport.innerHTML = hljs.highlight(visibleText, { language: detectedLanguage, ignoreIllegals: true }).value;
-                } catch (e) {
-                    viewport.textContent = visibleText;
-                }
-            } else {
-                viewport.textContent = visibleText;
-            }
-            
-            const offsetTop = paddingTop + startIdx * lineHeight;
-            viewport.style.transform = "translate3d(0, " + offsetTop + "px, 0)";
+            highlightInto(lines.slice(startIdx, endIdx).join('\n'));
 
             let numStr = '';
             for (let i = startIdx + 1; i <= endIdx; i++) {
                 numStr += i + '\n';
             }
             lineNumbersDiv.textContent = numStr;
-            lineNumbersDiv.style.transform = "translate3d(0, " + (offsetTop - scrollTop) + "px, 0)";
+
+            const offsetTop = paddingTop + startIdx * lineHeight;
+            // 레이어 전체를 한 번에 세로 이동(줄번호·본문 공통) → 둘이 절대 분리되지 않음
+            renderLayer.style.transform = "translate3d(0, " + offsetTop + "px, 0)";
+            // 줄번호만 가로 스크롤에 맞춰 좌측 고정
+            lineNumbersDiv.style.transform = "translate3d(" + scrollLeft + "px, 0, 0)";
         }
 
         codeArea.addEventListener('scroll', render);
@@ -594,39 +611,27 @@
 
         function enableWordWrap() {
             wordWrapEnabled = true;
+            setMode(false);                       // 일반 흐름으로 전환
+            renderLayer.style.display = 'block';  // 줄번호 제거 후 본문만 폭에 맞춰 줄바꿈
+            renderLayer.style.minWidth = '0';
+            renderLayer.style.transform = 'none';
+            lineNumbersDiv.style.display = 'none';
             viewport.style.whiteSpace = 'pre-wrap';
             viewport.style.wordBreak = 'break-all';
-            viewport.style.transform = 'none';
-            viewport.style.position = 'relative';
-            viewport.style.top = '0';
-            viewport.style.paddingTop = paddingTop + 'px';
-            
-            spacer.style.display = 'none';
-            document.querySelector('.line-numbers').style.display = 'none';
 
             detectLang();
-            
-            if (typeof hljs !== 'undefined' && detectedLanguage !== 'plaintext') {
-                try {
-                    viewport.innerHTML = hljs.highlight(rawText, { language: detectedLanguage, ignoreIllegals: true }).value;
-                } catch (e) {
-                    viewport.textContent = rawText;
-                }
-            } else {
-                viewport.textContent = rawText;
-            }
+            highlightInto(rawText);
         }
 
         function disableWordWrap() {
             wordWrapEnabled = false;
+            renderLayer.style.display = 'flex';
+            renderLayer.style.minWidth = '';
+            lineNumbersDiv.style.display = '';
             viewport.style.whiteSpace = 'pre';
             viewport.style.wordBreak = 'normal';
-            viewport.style.position = 'absolute';
-            viewport.style.paddingTop = '20px';
-            
-            spacer.style.display = 'block';
-            document.querySelector('.line-numbers').style.display = 'block';
-            
+
+            staticRendered = false;
             render();
         }
 
