@@ -369,8 +369,17 @@
                     <span class="info-value">curl -v --data-binary @test.txt {{ .BaseURL }}/</span>
                 </div>
                 <div class="info-item">
-                    <span class="info-label">비밀번호 보호 링크</span>
+                    <span class="info-label">비밀번호 보호 (무작위 발급)</span>
                     <span class="info-value">curl -X POST --data-binary @secret.txt {{ .BaseURL }}/pw</span>
+                </div>
+                <div class="info-item">
+                    <span class="info-label">비밀번호 직접 지정 (정책 조합 가능)</span>
+                    <span class="info-value">curl -X POST --data-binary @secret.txt {{ .BaseURL }}/pw/12345
+curl -X POST --data-binary @secret.txt {{ .BaseURL }}/pw/12345/week</span>
+                </div>
+                <div class="info-item">
+                    <span class="info-label">비밀번호 헤더 지정 (URL 노출 방지)</span>
+                    <span class="info-value">curl -H "paste-custom-password: 12345" --data-binary @secret.txt {{ .BaseURL }}/week</span>
                 </div>
                 <div class="info-item">
                     <span class="info-label">1회 열람 후 파기</span>
