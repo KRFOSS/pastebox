@@ -2,6 +2,7 @@ package main
 
 import (
 	"bytes"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"html/template"
@@ -33,6 +34,15 @@ type app struct {
 	maxUploadSize       int64
 	homeBackgroundImage string
 	mu                  sync.RWMutex
+}
+
+type uploadResponse struct {
+	ID          string `json:"id"`
+	URL         string `json:"url"`
+	DeleteURL   string `json:"delete_url"`
+	DeleteToken string `json:"delete_token"`
+	Password    string `json:"password,omitempty"`
+	ExpiresAt   string `json:"expires_at,omitempty"`
 }
 
 func (a *app) getMaxUploadSize() int64 {
@@ -87,14 +97,12 @@ func (a *app) handle(w http.ResponseWriter, r *http.Request) {
 			http.Error(w, "허용되지 않은 메서드입니다.", http.StatusMethodNotAllowed)
 		}
 		return
-	case "/pw/temp", "/pw/week":
+	case "/pw/temp", "/pw/week", "/json", "/temp/json", "/week/json", "/pw/json", "/pw/temp/json", "/pw/week/json":
 		switch r.Method {
 		case http.MethodPost, http.MethodPut:
-			r.Header.Set("usepassword", "true")
-			if r.URL.Path == "/pw/temp" {
-				r.Header.Set("data-policy", "once")
-			} else {
-				r.Header.Set("data-policy", "week")
+			if !a.applyUploadRouteOptions(r) {
+				http.NotFound(w, r)
+				return
 			}
 			a.uploadHandler(w, r)
 		default:
@@ -242,6 +250,24 @@ func (a *app) uploadHandler(w http.ResponseWriter, r *http.Request) {
 
 	url := strings.TrimRight(requestBaseURL(r), "/") + "/" + meta.ID
 
+	if wantsJSONUploadResponse(r) {
+		w.Header().Set("Content-Type", "application/json; charset=utf-8")
+		resp := uploadResponse{
+			ID:          meta.ID,
+			URL:         url,
+			DeleteURL:   fmt.Sprintf("%s?delete=%s", url, deleteToken),
+			DeleteToken: deleteToken,
+			Password:    password,
+		}
+		if !meta.ExpiresAt.IsZero() {
+			resp.ExpiresAt = meta.ExpiresAt.Format(time.RFC3339)
+		}
+		if err := json.NewEncoder(w).Encode(resp); err != nil {
+			http.Error(w, "JSON 응답 생성 실패", http.StatusInternalServerError)
+		}
+		return
+	}
+
 	w.Header().Set("Content-Type", "text/plain; charset=utf-8")
 
 	fmt.Fprintf(w, "주소: %s\n", url)
@@ -255,6 +281,31 @@ func (a *app) uploadHandler(w http.ResponseWriter, r *http.Request) {
 	}
 
 	fmt.Fprintf(w, "삭제링크: %s?delete=%s\n", url, deleteToken)
+}
+
+func (a *app) applyUploadRouteOptions(r *http.Request) bool {
+	switch r.URL.Path {
+	case "/pw/temp", "/pw/temp/json":
+		r.Header.Set("usepassword", "true")
+		r.Header.Set("data-policy", "once")
+	case "/pw/week", "/pw/week/json":
+		r.Header.Set("usepassword", "true")
+		r.Header.Set("data-policy", "week")
+	case "/json":
+	case "/temp/json":
+		r.Header.Set("data-policy", "once")
+	case "/week/json":
+		r.Header.Set("data-policy", "week")
+	case "/pw/json":
+		r.Header.Set("usepassword", "true")
+	default:
+		return false
+	}
+	return true
+}
+
+func wantsJSONUploadResponse(r *http.Request) bool {
+	return strings.HasSuffix(r.URL.Path, "/json") || r.URL.Path == "/json"
 }
 
 func (a *app) deleteHandler(w http.ResponseWriter, r *http.Request, id string, token string) {
