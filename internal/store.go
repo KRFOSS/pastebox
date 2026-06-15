@@ -31,7 +31,7 @@ var (
 )
 
 type Storage interface {
-	Create(r io.Reader, contentType string, usePassword bool, dataPolicy string, expiresAfter time.Duration) (meta Metadata, password string, deleteToken string, err error)
+	Create(r io.Reader, contentType string, usePassword bool, customPassword string, dataPolicy string, expiresAfter time.Duration) (meta Metadata, password string, deleteToken string, err error)
 	Open(id string, password string) (entry *Entry, err error)
 	Stat(id string, password string) (meta Metadata, err error)
 	Delete(id string, token string) error
@@ -80,7 +80,7 @@ func NewLocalStore(dataDir string, ttl time.Duration) (*LocalStore, error) {
 	}, nil
 }
 
-func (s *LocalStore) Create(r io.Reader, contentType string, usePassword bool, dataPolicy string, expiresAfter time.Duration) (Metadata, string, string, error) {
+func (s *LocalStore) Create(r io.Reader, contentType string, usePassword bool, customPassword string, dataPolicy string, expiresAfter time.Duration) (Metadata, string, string, error) {
 	id, path, err := s.reservePath()
 	if err != nil {
 		return Metadata{}, "", "", err
@@ -115,10 +115,14 @@ func (s *LocalStore) Create(r io.Reader, contentType string, usePassword bool, d
 	var passwordHash string
 
 	if usePassword {
-		password, err = generatePassword(8)
-		if err != nil {
-			_ = os.Remove(path)
-			return Metadata{}, "", "", err
+		if customPassword != "" {
+			password = customPassword
+		} else {
+			password, err = generatePassword(8)
+			if err != nil {
+				_ = os.Remove(path)
+				return Metadata{}, "", "", err
+			}
 		}
 		passwordHash = hashSecret(password)
 	}
@@ -608,7 +612,7 @@ func (s *DBStore) autoMigrate() error {
 	return nil
 }
 
-func (s *DBStore) Create(r io.Reader, contentType string, usePassword bool, dataPolicy string, expiresAfter time.Duration) (Metadata, string, string, error) {
+func (s *DBStore) Create(r io.Reader, contentType string, usePassword bool, customPassword string, dataPolicy string, expiresAfter time.Duration) (Metadata, string, string, error) {
 	var id string
 	var err error
 	for i := 0; i < 100; i++ {
@@ -644,9 +648,13 @@ func (s *DBStore) Create(r io.Reader, contentType string, usePassword bool, data
 	var password string
 	var passwordHash string
 	if usePassword {
-		password, err = generatePassword(8)
-		if err != nil {
-			return Metadata{}, "", "", err
+		if customPassword != "" {
+			password = customPassword
+		} else {
+			password, err = generatePassword(8)
+			if err != nil {
+				return Metadata{}, "", "", err
+			}
 		}
 		passwordHash = hashSecret(password)
 	}

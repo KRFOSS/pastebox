@@ -130,6 +130,21 @@ ADMIN_TOKEN=
    curl http://localhost:8080/RANDOM_CODE?password=RANDOM_PASSWORD
    ```
 
+   **비밀번호 직접 지정**: `/pw/<비밀번호>` 경로로 업로드하면 그 문자열이 그대로 비밀번호가 됩니다. (예: `/pw/12345` → 비밀번호 `12345`) `/pw/` 바로 뒤 세그먼트는 **항상 비밀번호**라 `temp`·`week` 같은 단어도 비밀번호로 쓸 수 있으며(`/pw/week/week` → 비밀번호 `week`), 마지막에 정책 키워드를 덧붙여 조합할 수 있습니다.
+   ```bash
+   # 비밀번호 12345:
+   echo "secret" | curl -X POST --data-binary @- http://localhost:8080/pw/12345
+
+   # 비밀번호 12345 + 1회 열람 후 파기 / + 1주 보관:
+   echo "secret" | curl -X POST --data-binary @- http://localhost:8080/pw/12345/temp
+   echo "secret" | curl -X POST --data-binary @- http://localhost:8080/pw/12345/week
+
+   # 헤더로 지정 (URL 로그 노출 방지). 정책 경로와 자유롭게 조합 가능:
+   echo "secret" | curl -H "paste-custom-password: 12345" -X POST --data-binary @- http://localhost:8080/week
+   ```
+   > `/pw/<비밀번호>` 방식은 비밀번호가 URL 경로에 포함되어 프록시·접근 로그에 남습니다. 민감하면 `paste-custom-password` 헤더 방식을 권장합니다.
+   > `/pw/temp`·`/pw/week`처럼 비밀번호 없이 정책 키워드만 오면 비밀번호가 지정되지 않으며, 이때는 `paste-custom-password`(또는 `usepassword: true`) 헤더로만 비밀번호를 붙일 수 있습니다.
+
 6. **1주 보관 후 자동 삭제**: `/week` 경로를 사용하면 업로드 시점 기준 7일 후 자동삭제
    ```bash
    echo "hello" | curl -X POST --data-binary @- http://localhost:8080/week
@@ -140,7 +155,7 @@ ADMIN_TOKEN=
    curl -X POST --data-binary @- http://localhost:8080/json
    curl -X POST --data-binary @- http://localhost:8080/week/json
    curl -X POST --data-binary @- http://localhost:8080/pw/json
-   curl -X POST --data-binary @- http://localhost:8080/pw/temp/json
+   curl -X POST --data-binary @- http://localhost:8080/pw/12345/week/json
    ```
 8. **대규모 압축 인메모리 파이프라인 (DB 모드)**:
    - 데이터베이스 연동 시, 업로드한 데이터를 Go 백엔드 메모리 단에서 `zstd` 또는 `gzip`을 통해 초고압축하여 DB에 축소 보관합니다.

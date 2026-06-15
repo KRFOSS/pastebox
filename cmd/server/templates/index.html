@@ -440,9 +440,12 @@
 
                 <div style="background: rgba(0,0,0,0.2); padding: 16px; border-radius: 8px; margin-bottom: 24px;">
                     <label style="display: flex; align-items: center; cursor: pointer; margin-bottom: 12px;">
-                        <input type="checkbox" id="optPassword" style="margin-right: 10px; width: 16px; height: 16px; accent-color: #06b6d4;">
+                        <input type="checkbox" id="optPassword" onchange="toggleCustomPwInput()" style="margin-right: 10px; width: 16px; height: 16px; accent-color: #06b6d4;">
                         <span style="font-size: 14px; color: #e5e5e5;">비밀번호로 보호하기</span>
                     </label>
+                    <div id="customPwWrap" style="display: none; margin: -4px 0 12px 26px;">
+                        <input type="text" id="optCustomPassword" maxlength="72" autocomplete="off" placeholder="비밀번호 직접 지정 (선택 · 비우면 자동 생성)" style="width: 100%; box-sizing: border-box; background: #1a1a1a; color: #e5e5e5; border: 1px solid rgba(84,84,88,0.4); border-radius: 8px; padding: 10px 12px; font-family: monospace; font-size: 14px; outline: none;">
+                    </div>
                     <label style="display: flex; align-items: center; cursor: pointer;">
                         <input type="radio" name="retentionPolicy" id="optOnce" style="margin-right: 10px; width: 16px; height: 16px; accent-color: #06b6d4;">
                         <span style="font-size: 14px; color: #e5e5e5;">1회 열람 후 즉시 파기</span>
@@ -526,10 +529,18 @@
             document.getElementById('optPassword').checked = false;
             document.getElementById('optOnce').checked = false;
             document.getElementById('optWeek').checked = false;
+            document.getElementById('optCustomPassword').value = '';
+            document.getElementById('customPwWrap').style.display = 'none';
         }
 
         function closeUploadModal() {
             document.getElementById('uploadModal').classList.remove('active');
+        }
+
+        function toggleCustomPwInput() {
+            const show = document.getElementById('optPassword').checked;
+            document.getElementById('customPwWrap').style.display = show ? 'block' : 'none';
+            if (!show) document.getElementById('optCustomPassword').value = '';
         }
 
         function switchTab(mode) {
@@ -580,14 +591,26 @@
             }
 
             const usePw = document.getElementById('optPassword').checked;
+            const customPw = document.getElementById('optCustomPassword').value.trim();
             const useTemp = document.getElementById('optOnce').checked;
             const useWeek = document.getElementById('optWeek').checked;
-            
+
+            const headers = {};
+            if (usePw) {
+                if (customPw) {
+                    if (!/^[\x20-\x7E]+$/.test(customPw)) {
+                        errDiv.innerText = "직접 지정 비밀번호는 영문, 숫자, 일반 기호(ASCII)만 사용할 수 있습니다.";
+                        errDiv.style.display = 'block';
+                        return;
+                    }
+                    headers['paste-custom-password'] = customPw;
+                } else {
+                    headers['usepassword'] = 'true';
+                }
+            }
+
             let targetUrl = '/';
-            if (usePw && useTemp) targetUrl = '/pw/temp';
-            else if (usePw && useWeek) targetUrl = '/pw/week';
-            else if (usePw) targetUrl = '/pw';
-            else if (useTemp) targetUrl = '/temp';
+            if (useTemp) targetUrl = '/temp';
             else if (useWeek) targetUrl = '/week';
 
             btn.disabled = true;
@@ -596,7 +619,8 @@
             try {
                 const res = await fetch(targetUrl, {
                     method: 'POST',
-                    body: data
+                    body: data,
+                    headers: headers
                 });
 
                 const textRes = await res.text();

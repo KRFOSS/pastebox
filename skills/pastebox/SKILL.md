@@ -33,6 +33,21 @@ echo "secret info" | curl -H "usepassword: true" -X POST --data-binary @- https:
 ```
 *The response will include the URL and the generated password. Save the password, as it cannot be recovered.*
 
+**Choosing your own password:** upload to `/pw/<password>` and that exact string becomes the password (e.g. `/pw/12345` → password `12345`). The segment right after `/pw/` is always the password, so even `temp`/`week` work as passwords (`/pw/week/week` → password `week`); an optional trailing `temp` or `week` adds a retention policy.
+
+```bash
+# password "12345"
+echo "secret info" | curl -X POST --data-binary @- https://paste.krfoss.org/pw/12345
+
+# password "12345" + burn-after-reading / + one-week retention
+echo "secret info" | curl -X POST --data-binary @- https://paste.krfoss.org/pw/12345/temp
+echo "secret info" | curl -X POST --data-binary @- https://paste.krfoss.org/pw/12345/week
+```
+*Note: a password placed in the URL path may appear in proxy/access logs. To avoid this, pass it via the `paste-custom-password` header, which also combines freely with any policy route:*
+```bash
+echo "secret info" | curl -H "paste-custom-password: 12345" -X POST --data-binary @- https://paste.krfoss.org/week
+```
+
 ### 3. Viewing Pastes
 **Standard View (Browser or curl):**
 ```bash

@@ -2,6 +2,7 @@ package main
 
 import (
 	"bytes"
+	"context"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -21,6 +22,15 @@ import (
 )
 
 var ansiEscapeRegex = regexp.MustCompile(`\x1b\[[0-9;]*[a-zA-Z]`)
+
+// customPasswordKey는 /pw/<비밀번호> 경로에서 추출한 사용자 지정 비밀번호를
+// uploadHandler로 전달하기 위한 컨텍스트 키입니다. (헤더에 노출하지 않기 위함)
+type contextKey string
+
+const customPasswordKey contextKey = "custom_password"
+
+// 사용자 지정 비밀번호 최대 길이. bcrypt 입력 한계(72바이트)에 맞춰 그 이상은 거부합니다.
+const maxCustomPasswordLen = 72
 
 type app struct {
 	store               pastebox.Storage
@@ -97,7 +107,7 @@ func (a *app) handle(w http.ResponseWriter, r *http.Request) {
 			http.Error(w, "허용되지 않은 메서드입니다.", http.StatusMethodNotAllowed)
 		}
 		return
-	case "/pw/temp", "/pw/week", "/json", "/temp/json", "/week/json", "/pw/json", "/pw/temp/json", "/pw/week/json":
+	case "/json", "/temp/json", "/week/json", "/pw/json":
 		switch r.Method {
 		case http.MethodPost, http.MethodPut:
 			if !a.applyUploadRouteOptions(r) {
@@ -105,6 +115,26 @@ func (a *app) handle(w http.ResponseWriter, r *http.Request) {
 				return
 			}
 			a.uploadHandler(w, r)
+		default:
+			http.Error(w, "허용되지 않은 메서드입니다.", http.StatusMethodNotAllowed)
+		}
+		return
+	}
+
+	// /pw/<비밀번호>[/<정책>] : 사용자가 직접 비밀번호를 지정하는 업로드 경로
+	// (예: /pw/12345, /pw/12345/temp, /pw/week/week). /pw, /pw/json 등은 위 switch에서 처리됨.
+	if custom, policy, ok := parsePwUploadPath(r.URL.Path); ok {
+		switch r.Method {
+		case http.MethodPost, http.MethodPut:
+			ctx := r.Context()
+			if custom != "" {
+				r.Header.Set("usepassword", "true")
+				ctx = context.WithValue(ctx, customPasswordKey, custom)
+			}
+			if policy != "" {
+				r.Header.Set("data-policy", policy)
+			}
+			a.uploadHandler(w, r.WithContext(ctx))
 		default:
 			http.Error(w, "허용되지 않은 메서드입니다.", http.StatusMethodNotAllowed)
 		}
@@ -208,6 +238,15 @@ func (a *app) uploadHandler(w http.ResponseWriter, r *http.Request) {
 
 	usePassword := strings.EqualFold(strings.TrimSpace(r.Header.Get("usepassword")), "true")
 
+	customPassword := customPasswordFromRequest(r)
+	if customPassword != "" {
+		if len(customPassword) > maxCustomPasswordLen {
+			http.Error(w, fmt.Sprintf("지정한 비밀번호가 너무 깁니다. (최대 %d바이트)", maxCustomPasswordLen), http.StatusBadRequest)
+			return
+		}
+		usePassword = true
+	}
+
 	policy := r.Header.Get("data-policy")
 	if policy == "" {
 		policy = r.URL.Query().Get("data-policy")
@@ -221,7 +260,7 @@ func (a *app) uploadHandler(w http.ResponseWriter, r *http.Request) {
 		expiresAfter = 7 * 24 * time.Hour
 	}
 
-	meta, password, deleteToken, err := a.store.Create(reader, contentType, usePassword, policy, expiresAfter)
+	meta, password, deleteToken, err := a.store.Create(reader, contentType, usePassword, customPassword, policy, expiresAfter)
 	if err != nil {
 		log.Printf("업로드 실패: %v", err)
 
@@ -285,12 +324,6 @@ func (a *app) uploadHandler(w http.ResponseWriter, r *http.Request) {
 
 func (a *app) applyUploadRouteOptions(r *http.Request) bool {
 	switch r.URL.Path {
-	case "/pw/temp", "/pw/temp/json":
-		r.Header.Set("usepassword", "true")
-		r.Header.Set("data-policy", "once")
-	case "/pw/week", "/pw/week/json":
-		r.Header.Set("usepassword", "true")
-		r.Header.Set("data-policy", "week")
 	case "/json":
 	case "/temp/json":
 		r.Header.Set("data-policy", "once")
@@ -306,6 +339,65 @@ func (a *app) applyUploadRouteOptions(r *http.Request) bool {
 
 func wantsJSONUploadResponse(r *http.Request) bool {
 	return strings.HasSuffix(r.URL.Path, "/json") || r.URL.Path == "/json"
+}
+
+// policyFromKeyword는 경로 마지막 세그먼트의 정책 키워드를 data-policy 값으로 변환합니다.
+// 정책 키워드가 아니면 빈 문자열을 반환합니다.
+func policyFromKeyword(s string) string {
+	switch s {
+	case "temp":
+		return "once"
+	case "week":
+		return "week"
+	default:
+		return ""
+	}
+}
+
+// parsePwUploadPath는 /pw/<비밀번호>[/<정책>] 형태의 경로를 파싱합니다.
+// /pw/ 바로 뒤 세그먼트는 항상 비밀번호이며, 마지막 세그먼트가 temp/week이면 정책으로 해석합니다.
+//   - /pw/12345         → custom=12345, policy=""
+//   - /pw/12345/temp    → custom=12345, policy=once
+//   - /pw/temp/temp     → custom=temp,  policy=once
+//   - /pw/week          → custom="",    policy=week (비밀번호는 헤더로만 지정 가능)
+// 끝의 /json 접미사는 응답 형식 제어용이라 무시하며, /pw·/pw/json 같은 랜덤 경로는 ok=false입니다.
+func parsePwUploadPath(p string) (custom string, policy string, ok bool) {
+	p = strings.TrimSuffix(p, "/json")
+	if !strings.HasPrefix(p, "/pw/") {
+		return "", "", false
+	}
+
+	rest := strings.Trim(strings.TrimPrefix(p, "/pw/"), "/")
+	if rest == "" {
+		return "", "", false
+	}
+
+	segs := strings.Split(rest, "/")
+	switch len(segs) {
+	case 1:
+		if pol := policyFromKeyword(segs[0]); pol != "" {
+			// 단독 정책 키워드: URL에는 비밀번호가 없으므로 헤더로만 지정 가능
+			return "", pol, true
+		}
+		return segs[0], "", true
+	case 2:
+		pol := policyFromKeyword(segs[1])
+		if pol == "" || segs[0] == "" {
+			return "", "", false
+		}
+		return segs[0], pol, true
+	default:
+		return "", "", false
+	}
+}
+
+// customPasswordFromRequest는 컨텍스트(/pw/<비밀번호> 경로) 또는
+// paste-custom-password 헤더에서 사용자 지정 비밀번호를 가져옵니다.
+func customPasswordFromRequest(r *http.Request) string {
+	if v, ok := r.Context().Value(customPasswordKey).(string); ok && v != "" {
+		return v
+	}
+	return strings.TrimSpace(r.Header.Get("paste-custom-password"))
 }
 
 func (a *app) deleteHandler(w http.ResponseWriter, r *http.Request, id string, token string) {
