@@ -49,6 +49,17 @@ func TestStoreBasic(t *testing.T) {
 		t.Fatalf("expected week expiry near %s, got %s", expectedWeekExpiresAt, weekMeta.ExpiresAt)
 	}
 
+	permanentMeta, _, _, err := store.Create(bytes.NewReader(content), "text/plain", false, "permanent", 0)
+	if err != nil {
+		t.Fatalf("failed to create permanent entry: %v", err)
+	}
+	if permanentMeta.DataPolicy != "permanent" {
+		t.Fatalf("expected permanent policy, got %q", permanentMeta.DataPolicy)
+	}
+	if !permanentMeta.ExpiresAt.IsZero() {
+		t.Fatalf("expected permanent entry to store zero expiry, got %s", permanentMeta.ExpiresAt)
+	}
+
 	// 잘못된 비밀번호로 조회 시도
 	_, err = store.Open(meta.ID, "wrong-password")
 	if err != ErrInvalidPassword {
