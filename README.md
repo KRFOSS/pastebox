@@ -114,6 +114,11 @@ ADMIN_TOKEN=
    curl -v --data-binary @test.txt http://localhost:8080/
    ```
 
+   JSON 응답이 필요하면 `/json` 계열 경로를 사용하세요.
+   ```bash
+   curl -v --data-binary @test.txt http://localhost:8080/json
+   ```
+
 5. **비밀번호 보호 링크**: `usepassword: true` 헤더를 사용한 비공개 업로드 링크생성 지원 (헤더 사용시 **영문(대+소문자) + 숫자** 조합으로 생성된 8자리 비밀번호 발급 및 `?password=...` 혹은 `paste-password: ...` 헤더로 접근 가능)
    ```bash
    # 비밀번호 링크 생성:
@@ -130,11 +135,18 @@ ADMIN_TOKEN=
    echo "hello" | curl -X POST --data-binary @- http://localhost:8080/week
    ```
 
-7. **대규모 압축 인메모리 파이프라인 (DB 모드)**:
+7. **JSON 응답 업로드 경로**: 기존 텍스트 응답과 별개로 업로드 결과를 JSON으로 받을 수 있습니다.
+   ```bash
+   curl -X POST --data-binary @- http://localhost:8080/json
+   curl -X POST --data-binary @- http://localhost:8080/week/json
+   curl -X POST --data-binary @- http://localhost:8080/pw/json
+   curl -X POST --data-binary @- http://localhost:8080/pw/temp/json
+   ```
+8. **대규모 압축 인메모리 파이프라인 (DB 모드)**:
    - 데이터베이스 연동 시, 업로드한 데이터를 Go 백엔드 메모리 단에서 `zstd` 또는 `gzip`을 통해 초고압축하여 DB에 축소 보관합니다.
    - 이를 통해 디스크 용량을 최대 90% 이상 절감하며 디스크 I/O와 대역폭 사용을 최소화하여 조회가 급증하는 환경에서도 빠른 응답 속도를 냅니다.
 
-8. **관리 대시보드 (`/ra`)**:
+9. **관리 대시보드 (`/ra`)**:
    - 관리자가 업로드된 모든 paste 데이터를 웹 브라우저에서 편리하게 관리할 수 있는 `/ra` 모니터링 콘솔을 제공합니다.
    - `ADMIN_TOKEN`을 통해 안전하게 인증(쿠키 기반) 후 접근하며, **선택 삭제** 및 **전체 파기** 기능을 지원합니다.
    - 최초 기동 시 `ADMIN_TOKEN` 설정이 비어있다면 영문 대소문자 및 숫자 조합의 256자 마스터 토큰이 자동으로 생성되어 `config.conf`에 영구 보존됩니다. (최초 생성 시 서버 표준 출력 로그를 통해 토큰 정보를 확인할 수 있습니다.)
