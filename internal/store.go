@@ -138,11 +138,14 @@ func (s *LocalStore) Create(r io.Reader, contentType string, usePassword bool, d
 		dataPolicy = strings.ToLower(dataPolicy)
 	}
 
-	ttl := s.TTL
-	if expiresAfter > 0 {
-		ttl = expiresAfter
+	expiresAt := time.Time{}
+	if !strings.EqualFold(dataPolicy, "permanent") {
+		ttl := s.TTL
+		if expiresAfter > 0 {
+			ttl = expiresAfter
+		}
+		expiresAt = now.Add(ttl)
 	}
-	expiresAt := now.Add(ttl)
 
 	meta := Metadata{
 		ID:              id,
@@ -661,11 +664,14 @@ func (s *DBStore) Create(r io.Reader, contentType string, usePassword bool, data
 		dataPolicy = strings.ToLower(dataPolicy)
 	}
 
-	ttl := s.TTL
-	if expiresAfter > 0 {
-		ttl = expiresAfter
+	expiresAt := time.Time{}
+	if !strings.EqualFold(dataPolicy, "permanent") {
+		ttl := s.TTL
+		if expiresAfter > 0 {
+			ttl = expiresAfter
+		}
+		expiresAt = now.Add(ttl)
 	}
-	expiresAt := now.Add(ttl)
 
 	meta := Metadata{
 		ID:              id,
@@ -864,8 +870,9 @@ func (s *DBStore) CleanupExpired() error {
 	_, err := s.db.Exec(`
 		DELETE FROM pastes
 		WHERE (expires_at IS NOT NULL AND expires_at < ?)
-		   OR (expires_at IS NULL AND created_at < ?)`,
-		now, cutoff)
+		   OR (expires_at IS NULL AND created_at < ?)
+		   OR (data_policy = 'permanent' AND created_at < ?)`,
+		now, cutoff, cutoff)
 	return err
 }
 
@@ -1104,7 +1111,7 @@ func (lm *lockManager) acquire(key string) (*keyLock, func()) {
 
 func isExpired(meta Metadata, now time.Time, ttl time.Duration) bool {
 	expiresAt := meta.ExpiresAt
-	if expiresAt.IsZero() {
+	if expiresAt.IsZero() || strings.EqualFold(meta.DataPolicy, "permanent") {
 		expiresAt = meta.CreatedAt.Add(ttl)
 	}
 
