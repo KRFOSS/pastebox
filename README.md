@@ -140,10 +140,10 @@ ADMIN_TOKEN=
    echo "secret" | curl -X POST --data-binary @- http://localhost:8080/pw/12345/week
 
    # 헤더로 지정 (URL 로그 노출 방지). 정책 경로와 자유롭게 조합 가능:
-   echo "secret" | curl -H "paste-custom-password: 12345" -X POST --data-binary @- http://localhost:8080/week
+   echo "secret" | curl -H "custom-pw: 12345" -X POST --data-binary @- http://localhost:8080/week
    ```
-   > `/pw/<비밀번호>` 방식은 비밀번호가 URL 경로에 포함되어 프록시·접근 로그에 남습니다. 민감하면 `paste-custom-password` 헤더 방식을 권장합니다.
-   > `/pw/temp`·`/pw/week`처럼 비밀번호 없이 정책 키워드만 오면 비밀번호가 지정되지 않으며, 이때는 `paste-custom-password`(또는 `usepassword: true`) 헤더로만 비밀번호를 붙일 수 있습니다.
+   > `/pw/<비밀번호>` 방식은 비밀번호가 URL 경로에 포함되어 프록시·접근 로그에 남습니다. 민감하면 `custom-pw` 헤더 방식을 권장합니다.
+   > `/pw/temp`·`/pw/week`처럼 비밀번호 없이 정책 키워드만 오면 비밀번호가 지정되지 않으며, 이때는 `custom-pw`(또는 `usepassword: true`) 헤더로만 비밀번호를 붙일 수 있습니다.
 
 6. **1주 보관 후 자동 삭제**: `/week` 경로를 사용하면 업로드 시점 기준 7일 후 자동삭제
    ```bash

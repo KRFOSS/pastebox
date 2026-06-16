@@ -392,12 +392,12 @@ func parsePwUploadPath(p string) (custom string, policy string, ok bool) {
 }
 
 // customPasswordFromRequest는 컨텍스트(/pw/<비밀번호> 경로) 또는
-// paste-custom-password 헤더에서 사용자 지정 비밀번호를 가져옵니다.
+// custom-pw 헤더에서 사용자 지정 비밀번호를 가져옵니다.
 func customPasswordFromRequest(r *http.Request) string {
 	if v, ok := r.Context().Value(customPasswordKey).(string); ok && v != "" {
 		return v
 	}
-	return strings.TrimSpace(r.Header.Get("paste-custom-password"))
+	return strings.TrimSpace(r.Header.Get("custom-pw"))
 }
 
 func (a *app) deleteHandler(w http.ResponseWriter, r *http.Request, id string, token string) {

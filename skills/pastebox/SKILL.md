@@ -43,9 +43,9 @@ echo "secret info" | curl -X POST --data-binary @- https://paste.krfoss.org/pw/1
 echo "secret info" | curl -X POST --data-binary @- https://paste.krfoss.org/pw/12345/temp
 echo "secret info" | curl -X POST --data-binary @- https://paste.krfoss.org/pw/12345/week
 ```
-*Note: a password placed in the URL path may appear in proxy/access logs. To avoid this, pass it via the `paste-custom-password` header, which also combines freely with any policy route:*
+*Note: a password placed in the URL path may appear in proxy/access logs. To avoid this, pass it via the `custom-pw` header, which also combines freely with any policy route:*
 ```bash
-echo "secret info" | curl -H "paste-custom-password: 12345" -X POST --data-binary @- https://paste.krfoss.org/week
+echo "secret info" | curl -H "custom-pw: 12345" -X POST --data-binary @- https://paste.krfoss.org/week
 ```
 
 ### 3. Viewing Pastes
