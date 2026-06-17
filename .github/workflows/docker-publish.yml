@@ -27,7 +27,7 @@ env:
 jobs:
   build-and-push:
     name: 이미지 빌드 및 배포
-    runs-on: ubuntu-latest
+    runs-on: superxeon
     permissions:
       contents: read
       packages: write

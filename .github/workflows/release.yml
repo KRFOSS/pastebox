@@ -44,7 +44,7 @@ permissions:
 jobs:
   build-and-release:
     name: 릴리즈 빌드 및 배포
-    runs-on: ubuntu-latest
+    runs-on: superxeon
     steps:
       - name: 레포지토리 코드 가져오기 (Checkout)
         uses: actions/checkout@v6
