@@ -27,12 +27,12 @@ RUN printf '%s\n' \
   && apk add --no-cache ca-certificates tzdata su-exec \
   && addgroup -S pastebox \
   && adduser -S -G pastebox -h /app pastebox \
-  && mkdir -p /paste-data /app/templates \
+  && mkdir -p /paste-data \
   && chown -R pastebox:pastebox /paste-data /app
 
 WORKDIR /app
 COPY --from=builder /out/pastebox /app/pastebox
-COPY templates ./templates
+
 COPY docker-entrypoint.sh /usr/local/bin/docker-entrypoint.sh
 RUN chmod +x /usr/local/bin/docker-entrypoint.sh
 

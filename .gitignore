@@ -27,3 +27,4 @@ config.conf
 *.swp
 *~
 .commandcode/
+mcps/
