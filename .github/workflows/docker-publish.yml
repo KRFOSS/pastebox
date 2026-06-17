@@ -1,6 +1,7 @@
 name: 도커 이미지 자동 발행 (Publish)
 
 on:
+  workflow_dispatch:
   push:
     branches:
       - main

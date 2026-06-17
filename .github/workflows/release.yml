@@ -1,6 +1,7 @@
 name: 자동 소스코드 릴리즈 (Auto Release)
 
 on:
+  workflow_dispatch:
   push:
     branches:
       - main
