@@ -1,8 +1,11 @@
 package main
 
 import (
+	"bytes"
 	"context"
+	"crypto/subtle"
 	"errors"
+	"fmt"
 	"log"
 	"net/http"
 	"os"
@@ -13,6 +16,9 @@ import (
 
 	pastebox "pastebox/internal"
 )
+
+const webDeleteNonceField = "web_delete_nonce"
+const webDeleteNonceCookiePrefix = "paste_web_delete_"
 
 func main() {
 	listenAddr := getenv("LISTEN_ADDR", ":8080")
@@ -127,7 +133,7 @@ func main() {
 
 	srv := &http.Server{
 		Addr:         listenAddr,
-		Handler:      mux,
+		Handler:      webDeleteProtection(mux),
 		ReadTimeout:  30 * time.Second,
 		WriteTimeout: 60 * time.Second,
 		IdleTimeout:  120 * time.Second,
@@ -156,4 +162,184 @@ func main() {
 	}
 
 	log.Println("서버가 안전하게 종료되었습니다.")
+}
+
+func webDeleteProtection(next http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Query().Get("delete") == "force" {
+			if !validateWebDeleteRequest(w, r) {
+				return
+			}
+			next.ServeHTTP(w, r)
+			return
+		}
+
+		id, ok := webDeleteIDFromPath(r.URL.Path)
+		if !ok || r.Method != http.MethodGet || r.URL.Query().Get("raw") == "1" || r.URL.Query().Get("password") != "" {
+			next.ServeHTTP(w, r)
+			return
+		}
+
+		nonce, err := pastebox.RandomString(pastebox.AlphanumericAlphabet, 32)
+		if err != nil {
+			next.ServeHTTP(w, r)
+			return
+		}
+
+		setWebDeleteNonceCookie(w, r, id, nonce)
+
+		buffered := &webDeleteBufferedWriter{ResponseWriter: w}
+		next.ServeHTTP(buffered, r)
+
+		statusCode := buffered.statusCode
+		if statusCode == 0 {
+			statusCode = http.StatusOK
+		}
+
+		body := buffered.body.Bytes()
+		if statusCode == http.StatusOK && strings.Contains(strings.ToLower(w.Header().Get("Content-Type")), "text/html") {
+			body = injectWebDeleteFormScript(body, nonce)
+			w.Header().Del("Content-Length")
+		}
+
+		w.WriteHeader(statusCode)
+		_, _ = w.Write(body)
+	})
+}
+
+func validateWebDeleteRequest(w http.ResponseWriter, r *http.Request) bool {
+	id, ok := webDeleteIDFromPath(r.URL.Path)
+	if !ok {
+		http.NotFound(w, r)
+		return false
+	}
+
+	if r.Method != http.MethodPost {
+		http.Error(w, "웹뷰어 삭제는 POST 요청만 허용됩니다.", http.StatusMethodNotAllowed)
+		return false
+	}
+
+	if err := r.ParseForm(); err != nil {
+		http.Error(w, "유효하지 않은 웹뷰어 삭제 요청입니다.", http.StatusBadRequest)
+		return false
+	}
+
+	formNonce := strings.TrimSpace(r.FormValue(webDeleteNonceField))
+	cookie, err := r.Cookie(webDeleteNonceCookieName(id))
+	if err != nil || formNonce == "" || subtle.ConstantTimeCompare([]byte(formNonce), []byte(cookie.Value)) != 1 {
+		http.Error(w, "웹뷰어 삭제 요청 검증에 실패했습니다.", http.StatusForbidden)
+		return false
+	}
+
+	clearWebDeleteNonceCookie(w, r, id)
+	return true
+}
+
+func setWebDeleteNonceCookie(w http.ResponseWriter, r *http.Request, id string, nonce string) {
+	http.SetCookie(w, &http.Cookie{
+		Name:     webDeleteNonceCookieName(id),
+		Value:    nonce,
+		Path:     "/" + id,
+		HttpOnly: true,
+		Secure:   isHTTPSRequest(r),
+		SameSite: http.SameSiteStrictMode,
+		MaxAge:   3600,
+	})
+}
+
+func clearWebDeleteNonceCookie(w http.ResponseWriter, r *http.Request, id string) {
+	http.SetCookie(w, &http.Cookie{
+		Name:     webDeleteNonceCookieName(id),
+		Value:    "",
+		Path:     "/" + id,
+		HttpOnly: true,
+		Secure:   isHTTPSRequest(r),
+		SameSite: http.SameSiteStrictMode,
+		MaxAge:   -1,
+	})
+}
+
+func webDeleteNonceCookieName(id string) string {
+	return webDeleteNonceCookiePrefix + id
+}
+
+func webDeleteIDFromPath(path string) (string, bool) {
+	id := strings.TrimPrefix(path, "/")
+	if id == "" || strings.Contains(id, "/") || len(id) != 5 {
+		return "", false
+	}
+
+	for _, r := range id {
+		if r >= 'a' && r <= 'z' {
+			continue
+		}
+		if r >= 'A' && r <= 'Z' {
+			continue
+		}
+		if r >= '0' && r <= '9' {
+			continue
+		}
+		return "", false
+	}
+
+	return id, true
+}
+
+func isHTTPSRequest(r *http.Request) bool {
+	if r.TLS != nil {
+		return true
+	}
+
+	proto := r.Header.Get("X-Forwarded-Proto")
+	if proto == "" {
+		return false
+	}
+
+	proto = strings.TrimSpace(strings.Split(proto, ",")[0])
+	return strings.EqualFold(proto, "https")
+}
+
+func injectWebDeleteFormScript(body []byte, nonce string) []byte {
+	script := fmt.Sprintf(`<script>
+(function () {
+    var deleteLink = document.querySelector('a[href="?delete=force"]');
+    if (!deleteLink) {
+        return;
+    }
+    deleteLink.addEventListener('click', function (event) {
+        event.preventDefault();
+        var form = document.createElement('form');
+        form.method = 'post';
+        form.action = '?delete=force';
+        var input = document.createElement('input');
+        input.type = 'hidden';
+        input.name = '%s';
+        input.value = '%s';
+        form.appendChild(input);
+        document.body.appendChild(form);
+        form.submit();
+    });
+})();
+</script>`, webDeleteNonceField, nonce)
+
+	return bytes.Replace(body, []byte("</body>"), []byte(script+"\n</body>"), 1)
+}
+
+type webDeleteBufferedWriter struct {
+	http.ResponseWriter
+	statusCode int
+	body       bytes.Buffer
+}
+
+func (w *webDeleteBufferedWriter) WriteHeader(statusCode int) {
+	if w.statusCode == 0 {
+		w.statusCode = statusCode
+	}
+}
+
+func (w *webDeleteBufferedWriter) Write(p []byte) (int, error) {
+	if w.statusCode == 0 {
+		w.statusCode = http.StatusOK
+	}
+	return w.body.Write(p)
 }
