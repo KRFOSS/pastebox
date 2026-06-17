@@ -1,5 +1,5 @@
 # syntax=docker/dockerfile:1
-FROM alpine:3.23.4 AS builder
+FROM alpine:3.23 AS builder
 
 RUN printf '%s\n' \
   'https://mirror5.krfoss.org/alpine/v3.23/main' \
@@ -16,7 +16,7 @@ COPY internal ./internal
 RUN go mod tidy
 RUN CGO_ENABLED=0 GOOS=linux go build -trimpath -ldflags='-s -w' -o /out/pastebox ./cmd/server
 
-FROM alpine:3.23.4
+FROM alpine:3.23
 
 RUN printf '%s\n' \
   'https://mirror5.krfoss.org/alpine/v3.23/main' \
