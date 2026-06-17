@@ -2,11 +2,12 @@
 > ROKFOSS Pastebox는 [kmw0410/pastebox](https://github.com/kmw0410/pastebox)를 기반으로 수정/운영되는 포크 버전이며, 원본 레포지토리에 대한 이슈 및 PR은 처리되지 않습니다.
 
 # ROKFOSS Pastebox
+
 curl 기반 텍스트/로그 공유 서비스
 
 ![](./preview.png)
 
-> ROKFOSS Pastebox 관련 문의는 [ROKFOSS 공식 디스코드](https://chat.krfoss.org) 또는 github@krfoss.org 으로 문의하여 주시길 바랍니다. 
+> ROKFOSS Pastebox 관련 문의는 [ROKFOSS 공식 디스코드](https://chat.krfoss.org) 또는 github@krfoss.org 으로 문의하여 주시길 바랍니다.
 
 ## 서비스 주소
 
@@ -15,16 +16,18 @@ curl 기반 텍스트/로그 공유 서비스
 **서비스 공지는 ROKFOSS 공식 디스코드를 방문하여 확인하실 수 있습니다**
 
 ### 기술 스택
-| 레이어 | 스택 |
-|--------|------|
-| OS | Alpine Linux 3.23.4 (미러: https://mirror5.krfoss.org/alpine)|
-| 언어 | Go |
-| 프론트엔드 | Go HTML Template |
-| 백엔드 | Go Standard Library HTTP Server |
-| 저장소 | Local File Storage / MariaDB (선택 가능) |
-| 압축 기술 | zstd / gzip (DB 모드 시 사용 가능) |
+
+| 레이어     | 스택                                                          |
+| ---------- | ------------------------------------------------------------- |
+| OS         | Alpine Linux 3.23.4 (미러: https://mirror5.krfoss.org/alpine) |
+| 언어       | Go                                                            |
+| 프론트엔드 | Go HTML Template                                              |
+| 백엔드     | Go Standard Library HTTP Server                               |
+| 저장소     | Local File Storage / MariaDB (선택 가능)                      |
+| 압축 기술  | zstd / gzip (DB 모드 시 사용 가능)                            |
 
 ### 어떻게 사용하나요?
+
 1. 저장소를 클론하거나 `.zip` 파일로 다운로드하세요.
 2. `config.example.conf` 파일을 복사하여 `config.conf` 설정 파일을 만듭니다.
    ```bash
@@ -32,13 +35,15 @@ curl 기반 텍스트/로그 공유 서비스
    ```
 3. 로컬 파일 저장소 모드로 가볍게 실행할지, 대규모 처리를 위해 MariaDB 모드를 활성화할지 `config.conf`를 수정하여 선택합니다.
 4. **직접 컴파일하여 실행 (Go 환경)**
+
    ```bash
    go build -o pastebox ./cmd/server
    ./pastebox
    ```
-   
+
    **또는 Docker (GHCR 사전 빌드 이미지)로 실행**
    소스 코드를 직접 빌드할 필요 없이 GitHub Packages에 등록된 공식 컨테이너를 즉시 끌어와서 실행할 수 있습니다.
+
    ```bash
    docker run -d --name pastebox \
      -p 8080:8080 \
@@ -46,28 +51,34 @@ curl 기반 텍스트/로그 공유 서비스
      -v $(pwd)/config.conf:/app/config.conf \
      ghcr.io/krfoss/pastebox:latest
    ```
-   *(Docker Compose를 사용하시려면 `docker-compose.yml` 파일의 `image` 부분을 `ghcr.io/krfoss/pastebox:latest`로 수정 후 `docker compose up -d`를 입력하세요.)*
+
+   _(Docker Compose를 사용하시려면 `docker-compose.yml` 파일의 `image` 부분을 `ghcr.io/krfoss/pastebox:latest`로 수정 후 `docker compose up -d`를 입력하세요.)_
 
 5. `http://localhost:8080`을 브라우저에서 접속하거나 `curl`을 사용하여 텍스트나 로그를 업로드하세요.
 
 ### 어떻게 업데이트하나요?
+
 기존에 설치된 Pastebox를 최신 버전으로 업데이트하려면 아래 방법을 사용하세요.
 
 **도커(Docker Compose) 사용자:**
+
 ```bash
 docker compose pull
 docker compose up -d
 ```
 
 **직접 컴파일(Go Build) 사용자:**
+
 ```bash
 git pull
 go build -o pastebox ./cmd/server
 # 이후 사용 중인 프로세스(systemd 등) 재시작
 ```
+
 ---
 
 ### 설정 가이드 (`config.conf`)
+
 Pastebox는 런타임에 로컬 파일 및 데이터베이스 모드를 전환할 수 있도록 `key=value` 프로퍼티 형식의 `.conf` 파일을 지원합니다.
 
 ```ini
@@ -100,6 +111,7 @@ ADMIN_TOKEN=
 1. **데이터 자동삭제**: 업로드 시점 기준 30일 후 자동삭제 (백그라운드 정리 고루틴 기동)
 
 2. **텍스트 업로드**: **echo, cat (cat << EOF)**와 같이 리눅스 명령어와 연계하여 업로드 가능
+
    ```bash
    echo "hello" | curl -X POST --data-binary @- http://localhost:8080/
    ```
@@ -108,22 +120,24 @@ ADMIN_TOKEN=
    ```bash
    ifconfig | curl -X POST --data-binary @- http://localhost:8080/
    ```
-   
 4. **텍스트 파일 업로드**: `multipart/form-data` 대신 대용량 처리에 유리한 바이너리 직접 전송 방식 지원
+
    ```bash
    curl -v --data-binary @test.txt http://localhost:8080/
    ```
 
    JSON 응답이 필요하면 `/json` 계열 경로를 사용하세요.
+
    ```bash
    curl -v --data-binary @test.txt http://localhost:8080/json
    ```
 
 5. **비밀번호 보호 링크**: `usepassword: true` 헤더를 사용한 비공개 업로드 링크생성 지원 (헤더 사용시 **영문(대+소문자) + 숫자** 조합으로 생성된 8자리 비밀번호 발급 및 `?password=...` 혹은 `paste-password: ...` 헤더로 접근 가능)
+
    ```bash
    # 비밀번호 링크 생성:
    curl -H "usepassword: true" -v --data-binary @secret.txt http://localhost:8080/
-   
+
    # 데이터 확인:
    curl -H "paste-password: RANDOM_PASSWORD" http://localhost:8080/RANDOM_CODE
 
@@ -131,6 +145,7 @@ ADMIN_TOKEN=
    ```
 
    **비밀번호 직접 지정**: `/pw/<비밀번호>` 경로로 업로드하면 그 문자열이 그대로 비밀번호가 됩니다. (예: `/pw/12345` → 비밀번호 `12345`) `/pw/` 바로 뒤 세그먼트는 **항상 비밀번호**라 `temp`·`week` 같은 단어도 비밀번호로 쓸 수 있으며(`/pw/week/week` → 비밀번호 `week`), 마지막에 정책 키워드를 덧붙여 조합할 수 있습니다.
+
    ```bash
    # 비밀번호 12345:
    echo "secret" | curl -X POST --data-binary @- http://localhost:8080/pw/12345
@@ -142,10 +157,12 @@ ADMIN_TOKEN=
    # 헤더로 지정 (URL 로그 노출 방지). 정책 경로와 자유롭게 조합 가능:
    echo "secret" | curl -H "custom-pw: 12345" -X POST --data-binary @- http://localhost:8080/week
    ```
+
    > `/pw/<비밀번호>` 방식은 비밀번호가 URL 경로에 포함되어 프록시·접근 로그에 남습니다. 민감하면 `custom-pw` 헤더 방식을 권장합니다.
    > `/pw/temp`·`/pw/week`처럼 비밀번호 없이 정책 키워드만 오면 비밀번호가 지정되지 않으며, 이때는 `custom-pw`(또는 `usepassword: true`) 헤더로만 비밀번호를 붙일 수 있습니다.
 
 6. **1주 보관 후 자동 삭제**: `/week` 경로를 사용하면 업로드 시점 기준 7일 후 자동삭제
+
    ```bash
    echo "hello" | curl -X POST --data-binary @- http://localhost:8080/week
    ```
@@ -168,11 +185,11 @@ ADMIN_TOKEN=
 
 ### 프로젝트 구조
 
-| 경로 | 설명 |
-|------|------|
-| `cmd/server/` | HTTP 서버, 핸들러, 관리자 API |
-| `cmd/server/templates/` | `go:embed`용 내장 HTML 템플릿 (디스크 템플릿 없을 때 폴백) |
-| `templates/` | Docker 및 로컬 실행 시 사용하는 HTML 템플릿 (`cmd/server/templates/`와 동기 유지) |
-| `internal/` | 저장소 구현 (로컬 파일 / MariaDB) |
-| `config.example.conf` | 설정 예시 |
-| `docker-compose.yml`, `Dockerfile` | 컨테이너 배포 |
+| 경로                               | 설명                                                                              |
+| ---------------------------------- | --------------------------------------------------------------------------------- |
+| `cmd/server/`                      | HTTP 서버, 핸들러, 관리자 API                                                     |
+| `cmd/server/templates/`            | `go:embed`용 내장 HTML 템플릿 (디스크 템플릿 없을 때 폴백)                        |
+| `templates/`                       | Docker 및 로컬 실행 시 사용하는 HTML 템플릿 (`cmd/server/templates/`와 동기 유지) |
+| `internal/`                        | 저장소 구현 (로컬 파일 / MariaDB)                                                 |
+| `config.example.conf`              | 설정 예시                                                                         |
+| `docker-compose.yml`, `Dockerfile` | 컨테이너 배포                                                                     |
