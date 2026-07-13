@@ -13,24 +13,17 @@ import (
 )
 
 type config struct {
-	StorageMode              string
-	ListenAddr               string
-	DataDir                  string
-	ExpireDays               int
-	DBDSN                    string
-	DBCompress               string
-	AdminToken               string
-	MaxUploadSizeMB          int64
-	RateLimitPerSec          float64
-	RateBurst                float64
-	HomeBackgroundImage      string
-	DiscordOAuthClientID     string
-	DiscordOAuthClientSecret string
-	DiscordOAuthRedirectURI  string
-	DiscordLinkedUserID      string
-	DiscordLinkedUsername    string
-	DiscordLinkedGlobalName  string
-	DiscordLinkedAvatar      string
+	StorageMode         string
+	ListenAddr          string
+	DataDir             string
+	ExpireDays          int
+	DBDSN               string
+	DBCompress          string
+	AdminToken          string
+	MaxUploadSizeMB     int64
+	RateLimitPerSec     float64
+	RateBurst           float64
+	HomeBackgroundImage string
 }
 
 func loadConfig(path string) (*config, error) {
@@ -97,20 +90,6 @@ func loadConfig(path string) (*config, error) {
 			}
 		case "HOME_BACKGROUND_IMAGE_URL":
 			cfg.HomeBackgroundImage = val
-		case "DISCORD_OAUTH_CLIENT_ID":
-			cfg.DiscordOAuthClientID = val
-		case "DISCORD_OAUTH_CLIENT_SECRET":
-			cfg.DiscordOAuthClientSecret = val
-		case "DISCORD_OAUTH_REDIRECT_URI":
-			cfg.DiscordOAuthRedirectURI = val
-		case "DISCORD_OAUTH_LINKED_USER_ID":
-			cfg.DiscordLinkedUserID = val
-		case "DISCORD_OAUTH_LINKED_USERNAME":
-			cfg.DiscordLinkedUsername = val
-		case "DISCORD_OAUTH_LINKED_GLOBAL_NAME":
-			cfg.DiscordLinkedGlobalName = val
-		case "DISCORD_OAUTH_LINKED_AVATAR":
-			cfg.DiscordLinkedAvatar = val
 		}
 	}
 
@@ -157,21 +136,6 @@ func persistConfigValues(path string, values map[string]string) error {
 		}
 		result = append(result, key+"="+value)
 		written[key] = true
-	}
-
-	for _, key := range []string{
-		"DISCORD_OAUTH_CLIENT_ID",
-		"DISCORD_OAUTH_CLIENT_SECRET",
-		"DISCORD_OAUTH_REDIRECT_URI",
-		"DISCORD_OAUTH_LINKED_USER_ID",
-		"DISCORD_OAUTH_LINKED_USERNAME",
-		"DISCORD_OAUTH_LINKED_GLOBAL_NAME",
-		"DISCORD_OAUTH_LINKED_AVATAR",
-	} {
-		if value, ok := normalized[key]; ok && !written[key] {
-			result = append(result, key+"="+value)
-			written[key] = true
-		}
 	}
 
 	for key, value := range normalized {

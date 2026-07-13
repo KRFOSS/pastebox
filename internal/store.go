@@ -43,6 +43,29 @@ type Storage interface {
 	RecordAccess(id string) error
 }
 
+type DiscordOAuthSettings struct {
+	ClientID         string
+	ClientSecret     string
+	RedirectURI      string
+	LinkedUserID     string
+	LinkedUsername   string
+	LinkedGlobalName string
+	LinkedAvatar     string
+}
+
+type DiscordOAuthPendingState struct {
+	State     string
+	Intent    string
+	ExpiresAt time.Time
+}
+
+type DiscordOAuthStorage interface {
+	LoadDiscordOAuthSettings() (DiscordOAuthSettings, bool, error)
+	SaveDiscordOAuthSettings(settings DiscordOAuthSettings) error
+	CreateDiscordOAuthState(state DiscordOAuthPendingState) error
+	ConsumeDiscordOAuthState(state string, now time.Time) (DiscordOAuthPendingState, bool, error)
+}
+
 type Metadata struct {
 	ID              string    `json:"id"`
 	PasswordHash    string    `json:"password_hash,omitempty"`
@@ -603,6 +626,34 @@ func (s *DBStore) autoMigrate() error {
 		return err
 	}
 
+	discordSettingsQuery := `
+	CREATE TABLE IF NOT EXISTS discord_oauth_settings (
+		id TINYINT UNSIGNED NOT NULL PRIMARY KEY,
+		client_id VARCHAR(32) NOT NULL,
+		client_secret VARCHAR(512) NOT NULL,
+		redirect_uri VARCHAR(2048) NOT NULL,
+		linked_user_id VARCHAR(32) NOT NULL,
+		linked_username VARCHAR(255) NOT NULL,
+		linked_global_name VARCHAR(255) NOT NULL,
+		linked_avatar VARCHAR(255) NOT NULL,
+		updated_at DATETIME(6) NOT NULL
+	) ENGINE=InnoDB;`
+	if _, err := s.db.Exec(discordSettingsQuery); err != nil {
+		return err
+	}
+
+	discordStatesQuery := `
+	CREATE TABLE IF NOT EXISTS discord_oauth_states (
+		state CHAR(48) CHARACTER SET ascii COLLATE ascii_bin NOT NULL PRIMARY KEY,
+		intent VARCHAR(16) NOT NULL,
+		expires_at DATETIME(6) NOT NULL,
+		created_at DATETIME(6) NOT NULL,
+		INDEX idx_discord_oauth_states_expires_at (expires_at)
+	) ENGINE=InnoDB;`
+	if _, err := s.db.Exec(discordStatesQuery); err != nil {
+		return err
+	}
+
 	_, _ = s.db.Exec(`ALTER TABLE pastes ADD COLUMN access_count BIGINT NOT NULL DEFAULT 0`)
 	_, _ = s.db.Exec(`ALTER TABLE pastes ADD COLUMN last_accessed_at DATETIME NULL`)
 
@@ -875,12 +926,15 @@ func (s *DBStore) Delete(id string, token string) error {
 func (s *DBStore) CleanupExpired() error {
 	now := time.Now().UTC()
 	cutoff := now.Add(-s.TTL)
-	_, err := s.db.Exec(`
+	if _, err := s.db.Exec(`
 		DELETE FROM pastes
 		WHERE (expires_at IS NOT NULL AND expires_at < ?)
 		   OR (expires_at IS NULL AND created_at < ?)
 		   OR (data_policy = 'permanent' AND created_at < ?)`,
-		now, cutoff, cutoff)
+		now, cutoff, cutoff); err != nil {
+		return err
+	}
+	_, err := s.db.Exec(`DELETE FROM discord_oauth_states WHERE expires_at < ?`, now)
 	return err
 }
 
@@ -1000,6 +1054,101 @@ func (s *DBStore) ForceDelete(id string) error {
 func (s *DBStore) DeleteAll() error {
 	_, err := s.db.Exec("DELETE FROM pastes")
 	return err
+}
+
+func (s *DBStore) LoadDiscordOAuthSettings() (DiscordOAuthSettings, bool, error) {
+	var settings DiscordOAuthSettings
+	err := s.db.QueryRow(`
+		SELECT client_id, client_secret, redirect_uri, linked_user_id,
+		       linked_username, linked_global_name, linked_avatar
+		FROM discord_oauth_settings
+		WHERE id = 1`).Scan(
+		&settings.ClientID,
+		&settings.ClientSecret,
+		&settings.RedirectURI,
+		&settings.LinkedUserID,
+		&settings.LinkedUsername,
+		&settings.LinkedGlobalName,
+		&settings.LinkedAvatar,
+	)
+	if errors.Is(err, sql.ErrNoRows) {
+		return DiscordOAuthSettings{}, false, nil
+	}
+	if err != nil {
+		return DiscordOAuthSettings{}, false, err
+	}
+	return settings, true, nil
+}
+
+func (s *DBStore) SaveDiscordOAuthSettings(settings DiscordOAuthSettings) error {
+	_, err := s.db.Exec(`
+		INSERT INTO discord_oauth_settings (
+			id, client_id, client_secret, redirect_uri, linked_user_id,
+			linked_username, linked_global_name, linked_avatar, updated_at
+		) VALUES (1, ?, ?, ?, ?, ?, ?, ?, ?)
+		ON DUPLICATE KEY UPDATE
+			client_id = VALUES(client_id),
+			client_secret = VALUES(client_secret),
+			redirect_uri = VALUES(redirect_uri),
+			linked_user_id = VALUES(linked_user_id),
+			linked_username = VALUES(linked_username),
+			linked_global_name = VALUES(linked_global_name),
+			linked_avatar = VALUES(linked_avatar),
+			updated_at = VALUES(updated_at)`,
+		settings.ClientID,
+		settings.ClientSecret,
+		settings.RedirectURI,
+		settings.LinkedUserID,
+		settings.LinkedUsername,
+		settings.LinkedGlobalName,
+		settings.LinkedAvatar,
+		time.Now().UTC(),
+	)
+	return err
+}
+
+func (s *DBStore) CreateDiscordOAuthState(state DiscordOAuthPendingState) error {
+	_, err := s.db.Exec(`
+		INSERT INTO discord_oauth_states (state, intent, expires_at, created_at)
+		VALUES (?, ?, ?, ?)`,
+		state.State,
+		state.Intent,
+		state.ExpiresAt.UTC(),
+		time.Now().UTC(),
+	)
+	return err
+}
+
+func (s *DBStore) ConsumeDiscordOAuthState(state string, now time.Time) (DiscordOAuthPendingState, bool, error) {
+	tx, err := s.db.Begin()
+	if err != nil {
+		return DiscordOAuthPendingState{}, false, err
+	}
+	defer tx.Rollback()
+
+	var pending DiscordOAuthPendingState
+	pending.State = state
+	err = tx.QueryRow(`
+		SELECT intent, expires_at
+		FROM discord_oauth_states
+		WHERE state = ?
+		FOR UPDATE`, state).Scan(&pending.Intent, &pending.ExpiresAt)
+	if errors.Is(err, sql.ErrNoRows) {
+		return DiscordOAuthPendingState{}, false, nil
+	}
+	if err != nil {
+		return DiscordOAuthPendingState{}, false, err
+	}
+	if _, err := tx.Exec(`DELETE FROM discord_oauth_states WHERE state = ?`, state); err != nil {
+		return DiscordOAuthPendingState{}, false, err
+	}
+	if err := tx.Commit(); err != nil {
+		return DiscordOAuthPendingState{}, false, err
+	}
+	if !pending.ExpiresAt.After(now.UTC()) {
+		return DiscordOAuthPendingState{}, false, nil
+	}
+	return pending, true, nil
 }
 
 // 압축 및 해제 보조 함수들

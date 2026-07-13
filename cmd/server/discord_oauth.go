@@ -28,6 +28,7 @@ var (
 	discordOAuthTokenURL     = "https://discord.com/api/oauth2/token"
 	discordOAuthUserURL      = "https://discord.com/api/v10/users/@me"
 	discordSnowflakePattern  = regexp.MustCompile(`^[0-9]{17,20}$`)
+	errDiscordOAuthDBOnly    = errors.New("Discord OAuth requires database storage mode")
 )
 
 type discordOAuthConfig struct {
@@ -66,11 +67,6 @@ func (c discordOAuthConfig) linkedAvatarURL() string {
 	return fmt.Sprintf("https://cdn.discordapp.com/avatars/%s/%s.png?size=128", c.LinkedUserID, c.LinkedAvatar)
 }
 
-type discordOAuthState struct {
-	Intent    string
-	ExpiresAt time.Time
-}
-
 type discordTokenResponse struct {
 	AccessToken string `json:"access_token"`
 	TokenType   string `json:"token_type"`
@@ -83,14 +79,47 @@ type discordUser struct {
 	Avatar     string `json:"avatar"`
 }
 
-func (a *app) getDiscordOAuthConfig() discordOAuthConfig {
-	a.mu.RLock()
-	defer a.mu.RUnlock()
-	return a.discordOAuth
+func discordOAuthConfigFromStorage(settings pastebox.DiscordOAuthSettings) discordOAuthConfig {
+	return discordOAuthConfig{
+		ClientID:         settings.ClientID,
+		ClientSecret:     settings.ClientSecret,
+		RedirectURI:      settings.RedirectURI,
+		LinkedUserID:     settings.LinkedUserID,
+		LinkedUsername:   settings.LinkedUsername,
+		LinkedGlobalName: settings.LinkedGlobalName,
+		LinkedAvatar:     settings.LinkedAvatar,
+	}
+}
+
+func (c discordOAuthConfig) storageSettings() pastebox.DiscordOAuthSettings {
+	return pastebox.DiscordOAuthSettings{
+		ClientID:         c.ClientID,
+		ClientSecret:     c.ClientSecret,
+		RedirectURI:      c.RedirectURI,
+		LinkedUserID:     c.LinkedUserID,
+		LinkedUsername:   c.LinkedUsername,
+		LinkedGlobalName: c.LinkedGlobalName,
+		LinkedAvatar:     c.LinkedAvatar,
+	}
+}
+
+func (a *app) getDiscordOAuthConfig() (discordOAuthConfig, error) {
+	if a.discordOAuthStore == nil {
+		return discordOAuthConfig{}, errDiscordOAuthDBOnly
+	}
+	settings, found, err := a.discordOAuthStore.LoadDiscordOAuthSettings()
+	if err != nil {
+		return discordOAuthConfig{}, err
+	}
+	if !found {
+		return discordOAuthConfig{}, nil
+	}
+	return discordOAuthConfigFromStorage(settings), nil
 }
 
 func (a *app) discordOAuthReady() bool {
-	return a.getDiscordOAuthConfig().ready()
+	cfg, err := a.getDiscordOAuthConfig()
+	return err == nil && cfg.ready()
 }
 
 func (a *app) discordHTTP() *http.Client {
@@ -101,22 +130,10 @@ func (a *app) discordHTTP() *http.Client {
 }
 
 func (a *app) saveDiscordOAuthConfig(next discordOAuthConfig) error {
-	a.mu.Lock()
-	defer a.mu.Unlock()
-
-	if err := persistConfigValues(a.configFilePath(), map[string]string{
-		"DISCORD_OAUTH_CLIENT_ID":          next.ClientID,
-		"DISCORD_OAUTH_CLIENT_SECRET":      next.ClientSecret,
-		"DISCORD_OAUTH_REDIRECT_URI":       next.RedirectURI,
-		"DISCORD_OAUTH_LINKED_USER_ID":     next.LinkedUserID,
-		"DISCORD_OAUTH_LINKED_USERNAME":    next.LinkedUsername,
-		"DISCORD_OAUTH_LINKED_GLOBAL_NAME": next.LinkedGlobalName,
-		"DISCORD_OAUTH_LINKED_AVATAR":      next.LinkedAvatar,
-	}); err != nil {
-		return err
+	if a.discordOAuthStore == nil {
+		return errDiscordOAuthDBOnly
 	}
-	a.discordOAuth = next
-	return nil
+	return a.discordOAuthStore.SaveDiscordOAuthSettings(next.storageSettings())
 }
 
 func (a *app) renderAdminLogin(w http.ResponseWriter, status int, message string) {
@@ -152,7 +169,12 @@ func (a *app) adminDiscordHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	cfg := a.getDiscordOAuthConfig()
+	cfg, err := a.getDiscordOAuthConfig()
+	if err != nil {
+		log.Printf("Discord OAuth 설정 조회 실패: %v", err)
+		http.Error(w, "Discord OAuth 설정을 데이터베이스에서 불러오지 못했습니다.", http.StatusServiceUnavailable)
+		return
+	}
 	notice, noticeError := discordAdminNotice(r.URL.Query().Get("status"))
 	w.Header().Set("Content-Type", "text/html; charset=utf-8")
 	_ = a.adminDiscord.Execute(w, map[string]any{
@@ -186,7 +208,7 @@ func discordAdminNotice(status string) (string, bool) {
 	case "invalid-redirect":
 		return "콜백 URL은 HTTPS 주소여야 하며 경로는 /ra/discord/callback 이어야 합니다. 로컬 개발에서는 HTTP loopback 주소를 사용할 수 있습니다.", true
 	case "save-failed":
-		return "설정 파일을 저장하지 못했습니다. 파일 쓰기 권한을 확인해 주세요.", true
+		return "Discord OAuth 설정을 데이터베이스에 저장하지 못했습니다.", true
 	case "oauth-error":
 		return "Discord 인증을 완료하지 못했습니다. 설정값과 Discord Developer Portal의 Redirect URI를 확인해 주세요.", true
 	default:
@@ -208,7 +230,12 @@ func (a *app) adminDiscordSettingsHandler(w http.ResponseWriter, r *http.Request
 		return
 	}
 
-	current := a.getDiscordOAuthConfig()
+	current, err := a.getDiscordOAuthConfig()
+	if err != nil {
+		log.Printf("Discord OAuth 설정 조회 실패: %v", err)
+		http.Redirect(w, r, "/ra/discord?status=save-failed", http.StatusSeeOther)
+		return
+	}
 	clientID := strings.TrimSpace(r.FormValue("client_id"))
 	clientSecret := strings.TrimSpace(r.FormValue("client_secret"))
 	redirectURI := strings.TrimSpace(r.FormValue("redirect_uri"))
@@ -279,7 +306,13 @@ func (a *app) discordLoginHandler(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "허용되지 않은 메서드입니다.", http.StatusMethodNotAllowed)
 		return
 	}
-	if !a.discordOAuthReady() {
+	cfg, err := a.getDiscordOAuthConfig()
+	if err != nil {
+		log.Printf("Discord OAuth 설정 조회 실패: %v", err)
+		a.renderAdminLogin(w, http.StatusServiceUnavailable, "Discord OAuth 설정을 데이터베이스에서 불러오지 못했습니다.")
+		return
+	}
+	if !cfg.ready() {
 		a.renderAdminLogin(w, http.StatusForbidden, "관리자가 Discord 계정을 연동하지 않아 Discord 로그인을 사용할 수 없습니다.")
 		return
 	}
@@ -287,7 +320,12 @@ func (a *app) discordLoginHandler(w http.ResponseWriter, r *http.Request) {
 }
 
 func (a *app) beginDiscordOAuth(w http.ResponseWriter, r *http.Request, intent string) {
-	cfg := a.getDiscordOAuthConfig()
+	cfg, err := a.getDiscordOAuthConfig()
+	if err != nil {
+		log.Printf("Discord OAuth 설정 조회 실패: %v", err)
+		a.handleDiscordOAuthFailure(w, r, intent, "Discord OAuth 설정을 불러오지 못했습니다.")
+		return
+	}
 	if !cfg.configured() || (intent == discordOAuthIntentLogin && !cfg.linked()) {
 		a.handleDiscordOAuthFailure(w, r, intent, "Discord OAuth 설정 또는 계정 연동이 완료되지 않았습니다.")
 		return
@@ -298,18 +336,19 @@ func (a *app) beginDiscordOAuth(w http.ResponseWriter, r *http.Request, intent s
 		a.handleDiscordOAuthFailure(w, r, intent, "OAuth 상태값을 생성하지 못했습니다.")
 		return
 	}
-	now := time.Now()
-	a.mu.Lock()
-	if a.discordOAuthStates == nil {
-		a.discordOAuthStates = make(map[string]discordOAuthState)
+	if a.discordOAuthStore == nil {
+		a.handleDiscordOAuthFailure(w, r, intent, "Discord OAuth는 데이터베이스 저장소 모드에서만 사용할 수 있습니다.")
+		return
 	}
-	for key, pending := range a.discordOAuthStates {
-		if now.After(pending.ExpiresAt) {
-			delete(a.discordOAuthStates, key)
-		}
+	if err := a.discordOAuthStore.CreateDiscordOAuthState(pastebox.DiscordOAuthPendingState{
+		State:     state,
+		Intent:    intent,
+		ExpiresAt: time.Now().UTC().Add(discordOAuthStateMaxAge),
+	}); err != nil {
+		log.Printf("Discord OAuth state 저장 실패: %v", err)
+		a.handleDiscordOAuthFailure(w, r, intent, "OAuth 상태값을 저장하지 못했습니다.")
+		return
 	}
-	a.discordOAuthStates[state] = discordOAuthState{Intent: intent, ExpiresAt: now.Add(discordOAuthStateMaxAge)}
-	a.mu.Unlock()
 
 	http.SetCookie(w, &http.Cookie{
 		Name:     discordOAuthStateCookieName,
@@ -332,19 +371,6 @@ func (a *app) beginDiscordOAuth(w http.ResponseWriter, r *http.Request, intent s
 		params.Set("prompt", "consent")
 	}
 	http.Redirect(w, r, discordOAuthAuthorizeURL+"?"+params.Encode(), http.StatusFound)
-}
-
-func (a *app) consumeDiscordOAuthState(state string) (discordOAuthState, bool) {
-	a.mu.Lock()
-	defer a.mu.Unlock()
-	pending, ok := a.discordOAuthStates[state]
-	if ok {
-		delete(a.discordOAuthStates, state)
-	}
-	if !ok || time.Now().After(pending.ExpiresAt) {
-		return discordOAuthState{}, false
-	}
-	return pending, true
 }
 
 func clearDiscordOAuthStateCookie(w http.ResponseWriter, r *http.Request) {
@@ -372,8 +398,18 @@ func (a *app) discordCallbackHandler(w http.ResponseWriter, r *http.Request) {
 		a.renderAdminLogin(w, http.StatusBadRequest, "Discord 로그인 요청이 만료되었거나 유효하지 않습니다. 다시 시도해 주세요.")
 		return
 	}
-	pending, ok := a.consumeDiscordOAuthState(state)
+	if a.discordOAuthStore == nil {
+		clearDiscordOAuthStateCookie(w, r)
+		http.Error(w, "Discord OAuth는 데이터베이스 저장소 모드에서만 사용할 수 있습니다.", http.StatusServiceUnavailable)
+		return
+	}
+	pending, ok, err := a.discordOAuthStore.ConsumeDiscordOAuthState(state, time.Now().UTC())
 	clearDiscordOAuthStateCookie(w, r)
+	if err != nil {
+		log.Printf("Discord OAuth state 조회 실패: %v", err)
+		http.Error(w, "Discord OAuth 상태를 데이터베이스에서 확인하지 못했습니다.", http.StatusServiceUnavailable)
+		return
+	}
 	if !ok {
 		a.renderAdminLogin(w, http.StatusBadRequest, "Discord 로그인 요청이 만료되었거나 유효하지 않습니다. 다시 시도해 주세요.")
 		return
@@ -393,7 +429,12 @@ func (a *app) discordCallbackHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	cfg := a.getDiscordOAuthConfig()
+	cfg, err := a.getDiscordOAuthConfig()
+	if err != nil {
+		log.Printf("Discord OAuth 설정 조회 실패: %v", err)
+		a.handleDiscordOAuthFailure(w, r, pending.Intent, "Discord OAuth 설정을 불러오지 못했습니다.")
+		return
+	}
 	accessToken, err := a.exchangeDiscordCode(r, cfg, code)
 	if err != nil {
 		log.Printf("Discord OAuth 코드 교환 실패 (intent=%s): %v", pending.Intent, err)
@@ -422,7 +463,12 @@ func (a *app) discordCallbackHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	current := a.getDiscordOAuthConfig()
+	current, err := a.getDiscordOAuthConfig()
+	if err != nil {
+		log.Printf("Discord OAuth 설정 재조회 실패: %v", err)
+		a.renderAdminLogin(w, http.StatusServiceUnavailable, "Discord OAuth 설정을 확인하지 못했습니다.")
+		return
+	}
 	if !current.ready() || subtle.ConstantTimeCompare([]byte(user.ID), []byte(current.LinkedUserID)) != 1 {
 		a.renderAdminLogin(w, http.StatusForbidden, "이 Discord 계정은 관리자에 의해 연동되지 않았습니다.")
 		return
@@ -515,7 +561,12 @@ func (a *app) adminDiscordUnlinkHandler(w http.ResponseWriter, r *http.Request) 
 		return
 	}
 
-	next := a.getDiscordOAuthConfig()
+	next, err := a.getDiscordOAuthConfig()
+	if err != nil {
+		log.Printf("Discord OAuth 설정 조회 실패: %v", err)
+		http.Redirect(w, r, "/ra/discord?status=save-failed", http.StatusSeeOther)
+		return
+	}
 	next.LinkedUserID = ""
 	next.LinkedUsername = ""
 	next.LinkedGlobalName = ""

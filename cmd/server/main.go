@@ -32,7 +32,6 @@ func main() {
 	rateLimitPerSec := getenvFloat("RATE_LIMIT_PER_SEC", 2)
 	rateBurst := getenvFloat("RATE_LIMIT_BURST", 10)
 	homeBackgroundImage := ""
-	discordOAuth := discordOAuthConfig{}
 
 	cfg, err := loadConfig("config.conf")
 	if err == nil {
@@ -66,15 +65,6 @@ func main() {
 			rateBurst = cfg.RateBurst
 		}
 		homeBackgroundImage = cfg.HomeBackgroundImage
-		discordOAuth = discordOAuthConfig{
-			ClientID:         cfg.DiscordOAuthClientID,
-			ClientSecret:     cfg.DiscordOAuthClientSecret,
-			RedirectURI:      cfg.DiscordOAuthRedirectURI,
-			LinkedUserID:     cfg.DiscordLinkedUserID,
-			LinkedUsername:   cfg.DiscordLinkedUsername,
-			LinkedGlobalName: cfg.DiscordLinkedGlobalName,
-			LinkedAvatar:     cfg.DiscordLinkedAvatar,
-		}
 		log.Println("설정 파일(config.conf)이 성공적으로 로드되었습니다.")
 	} else {
 		if !errors.Is(err, os.ErrNotExist) {
@@ -83,7 +73,6 @@ func main() {
 			log.Println("설정 파일이 발견되지 않아 환경 변수 기반으로 구동합니다.")
 		}
 	}
-
 	var store pastebox.Storage
 	if storageMode == "db" {
 		if dbDSN == "" {
@@ -101,6 +90,7 @@ func main() {
 			log.Fatalf("로컬 스토리지 초기화 실패: %v", err)
 		}
 	}
+	discordOAuthStore, _ := store.(pastebox.DiscordOAuthStorage)
 
 	indexTmpl, pasteTmpl, passwordTmpl, adminLoginTmpl, adminDashTmpl, adminDiscordTmpl := loadTemplates()
 
@@ -117,8 +107,7 @@ func main() {
 		expireDays:          expireDays,
 		maxUploadSize:       maxUploadSizeMB * 1024 * 1024,
 		homeBackgroundImage: homeBackgroundImage,
-		discordOAuth:        discordOAuth,
-		discordOAuthStates:  make(map[string]discordOAuthState),
+		discordOAuthStore:   discordOAuthStore,
 		discordHTTPClient:   &http.Client{Timeout: 10 * time.Second},
 	}
 
