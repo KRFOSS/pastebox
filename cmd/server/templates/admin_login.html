@@ -464,9 +464,113 @@
         transition-duration: 0.01ms !important;
       }
     }
+
+    /* Pastebox public pages theme */
+    :root {
+      --bg: #1a1a1a;
+      --surface: #242424;
+      --surface-strong: #242424;
+      --border: rgba(84,84,88,.4);
+      --border-strong: rgba(255,255,255,.24);
+      --text: #fff;
+      --text-soft: #e5e5e5;
+      --text-muted: rgba(235,235,245,.6);
+      --accent: #06b6d4;
+      --accent-soft: rgba(6,182,212,.1);
+    }
+
+    body {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 120px 20px 40px;
+      background: #1a1a1a;
+    }
+
+    body::before { display: none; }
+
+    :focus-visible { outline: 3px solid #06b6d4; outline-offset: 2px; }
+
+    .navbar {
+      position: fixed;
+      top: 0;
+      left: 0;
+      z-index: 20;
+      width: 100%;
+      padding: 23px;
+      background: linear-gradient(to bottom, rgba(0,0,0,.8) 0%, rgba(0,0,0,.65) 20%, rgba(0,0,0,.5) 40%, rgba(0,0,0,.35) 60%, rgba(0,0,0,.2) 75%, rgba(0,0,0,.1) 85%, rgba(0,0,0,.04) 93%, transparent 100%);
+    }
+
+    .navbar-inner { width: min(1200px, 100%); margin: 0 auto; padding: 0 16px; }
+    .navbar img { display: block; width: auto; height: 40px; }
+
+    .login-shell {
+      width: min(520px, 100%);
+      min-height: 0;
+      display: block;
+      margin: 0;
+      overflow: visible;
+      border: 0;
+      border-radius: 0;
+      background: transparent;
+      box-shadow: none;
+      backdrop-filter: none;
+    }
+
+    .brand-panel { display: none; }
+
+    .form-panel {
+      padding: 32px;
+      border: 1px solid rgba(84,84,88,.4);
+      border-radius: 10px;
+      background: #242424;
+    }
+
+    .form-content { max-width: none; }
+    .back-link { margin-bottom: 28px; }
+    .form-badge { color: #67e8f9; border-color: rgba(6,182,212,.2); background: rgba(6,182,212,.1); }
+
+    .field {
+      border-color: rgba(84,84,88,.4);
+      border-radius: 10px;
+      background: #1a1a1a;
+    }
+
+    .field:focus {
+      border-color: #06b6d4;
+      background: #1a1a1a;
+      box-shadow: 0 0 0 3px rgba(6,182,212,.16);
+    }
+
+    .submit-button {
+      color: #000;
+      border-color: #fff;
+      border-radius: 10px;
+      background: #fff;
+      box-shadow: none;
+    }
+
+    .submit-button:hover { background: rgba(255,255,255,.85); box-shadow: none; }
+    .discord-button { border-radius: 10px; box-shadow: none; }
+
+    @media (max-width: 520px) {
+      body { padding: 96px 12px 24px; }
+      .navbar { padding: 12px 15px; }
+      .navbar-inner { padding: 0; }
+      .navbar img { height: 28px; }
+      .login-shell { width: 100%; margin: 0; border-radius: 0; }
+      .form-panel { padding: 24px; }
+    }
   </style>
 </head>
 <body>
+  <nav class="navbar" aria-label="메인 내비게이션">
+    <div class="navbar-inner">
+      <a href="/" aria-label="ROKFOSS 홈">
+        <img data-cfasync="false" loading="eager" decoding="async" src="https://cdn.krfoss.org/web/ROKFOSS.png" alt="ROKFOSS">
+      </a>
+    </div>
+  </nav>
   <main class="login-shell">
     <section class="brand-panel" aria-label="ROKFOSS Pastebox 관리자 로그인">
       <div class="brand-message">

@@ -340,22 +340,84 @@
     @media (prefers-reduced-motion: reduce) {
       *, *::before, *::after { transition-duration: .01ms !important; }
     }
+
+    /* Pastebox public pages theme */
+    :root {
+      --bg: #1a1a1a;
+      --surface: #242424;
+      --surface-soft: rgba(255,255,255,.035);
+      --border: rgba(84,84,88,.4);
+      --border-strong: rgba(255,255,255,.24);
+      --text: #fff;
+      --text-soft: #e5e5e5;
+      --text-muted: rgba(235,235,245,.6);
+      --accent: #06b6d4;
+      --radius: 10px;
+      --radius-lg: 10px;
+    }
+
+    body { background: #1a1a1a; }
+
+    :focus-visible { outline: 3px solid #06b6d4; outline-offset: 2px; }
+
+    .topbar {
+      position: fixed;
+      width: 100%;
+      border: 0;
+      background: linear-gradient(to bottom, rgba(0,0,0,.8) 0%, rgba(0,0,0,.65) 20%, rgba(0,0,0,.5) 40%, rgba(0,0,0,.35) 60%, rgba(0,0,0,.2) 75%, rgba(0,0,0,.1) 85%, rgba(0,0,0,.04) 93%, transparent 100%);
+      backdrop-filter: none;
+    }
+
+    .topbar-inner { width: min(1200px, calc(100% - 40px)); height: 86px; }
+    .brand-logo { display: block; width: auto; height: 40px; }
+    .main { padding-top: 132px; }
+    .eyebrow { color: #06b6d4; }
+
+    .surface,
+    .security-panel {
+      border-color: rgba(84,84,88,.4);
+      border-radius: 10px;
+      background: #242424;
+      box-shadow: none;
+      backdrop-filter: none;
+    }
+
+    .button { border-radius: 10px; background: #242424; }
+    .button:hover { background: #2c2c2e; }
+    .button-primary { color: #000; border-color: #fff; background: #fff; }
+    .button-primary:hover { color: #000; border-color: rgba(255,255,255,.85); background: rgba(255,255,255,.85); }
+    .button-discord { color: #fff; border-color: rgba(255,255,255,.1); background: #5865f2; }
+    .button-discord:hover { color: #fff; background: #6875f5; }
+    .button-danger { color: #fecdd3; border-color: rgba(239,68,68,.4); background: #242424; }
+    .button-danger:hover { color: #fff; border-color: rgba(239,68,68,.65); background: #2c2c2e; }
+
+    .field {
+      border-color: rgba(84,84,88,.4);
+      border-radius: 10px;
+      background: #1a1a1a;
+    }
+
+    .field:focus {
+      border-color: #06b6d4;
+      background: #1a1a1a;
+      box-shadow: 0 0 0 3px rgba(6,182,212,.16);
+    }
+
+    .section-icon { color: #67e8f9; border-color: rgba(6,182,212,.2); background: rgba(6,182,212,.1); }
+    .account-card { border-color: rgba(84,84,88,.4); border-radius: 10px; background: #1a1a1a; }
+
+    @media (max-width: 620px) {
+      .topbar-inner { width: min(100% - 24px, 1200px); height: 64px; }
+      .brand-logo { height: 28px; }
+      .main { padding-top: 106px; }
+    }
   </style>
 </head>
 <body>
   <header class="topbar">
     <div class="topbar-inner">
       <a class="brand" href="/ra" aria-label="Pastebox 관리자 홈">
-        <span class="brand-mark" aria-hidden="true">
-          <svg viewBox="0 0 24 24" fill="none" stroke-width="2">
-            <path d="M9 5h6M9 9h6M9 13h4" stroke-linecap="round"/>
-            <path d="M7 3.5h10a2 2 0 0 1 2 2v13a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2v-13a2 2 0 0 1 2-2Z"/>
-          </svg>
-        </span>
-        <span>
-          <span class="brand-title">Pastebox</span>
-          <span class="brand-subtitle">Discord authentication</span>
-        </span>
+        <img class="brand-logo" data-cfasync="false" loading="eager" decoding="async" src="https://cdn.krfoss.org/web/ROKFOSS.png" alt="ROKFOSS">
       </a>
       <div class="header-actions">
         <a class="button" href="/ra">
