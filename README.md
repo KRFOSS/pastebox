@@ -186,8 +186,8 @@ ADMIN_TOKEN=
 10. **Discord OAuth 관리자 로그인 (`/ra/discord`)**:
    - MariaDB 저장소 모드에서만 사용할 수 있습니다. 먼저 `ADMIN_TOKEN`으로 로그인한 뒤 관리자 페이지의 **Discord 로그인** 메뉴에서 Client ID, Client Secret, Redirect URI를 저장합니다.
    - Discord Developer Portal에도 `https://<서비스-도메인>/ra/discord/callback` 형식의 Redirect URI를 동일하게 등록해야 합니다.
-   - 설정 저장 후 **Discord 계정 연동**을 완료한 계정 하나만 관리자 로그인이 허용됩니다. 미연동 계정이나 다른 Discord 계정은 OAuth 인증에 성공하더라도 거부됩니다.
-   - OAuth 설정, 연동 계정, 일회용 `state` 값은 공유 데이터베이스에 저장되므로 여러 Pastebox 서버가 동일하게 사용합니다. `identify` 범위만 사용하며 Discord 액세스 토큰과 리프레시 토큰은 저장하지 않습니다.
+   - **Discord 계정 연동**으로 여러 관리자 계정을 등록할 수 있으며, 목록에 등록되지 않은 계정은 OAuth 인증에 성공하더라도 거부됩니다.
+   - OAuth 설정, 관리자 계정 목록, 일회용 `state` 값은 공유 데이터베이스에 저장되므로 여러 Pastebox 서버가 동일하게 사용합니다. `identify` 범위만 사용하며 Discord 액세스 토큰과 리프레시 토큰은 저장하지 않습니다.
 
 ### 프로젝트 구조
 

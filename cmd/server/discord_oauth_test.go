@@ -1,12 +1,14 @@
 package main
 
 import (
+	"fmt"
 	"html/template"
 	"net/http"
 	"net/http/httptest"
 	"net/url"
 	"os"
 	"path/filepath"
+	"sort"
 	"strings"
 	"sync"
 	"testing"
@@ -43,12 +45,11 @@ func TestDiscordAdminTemplatesParse(t *testing.T) {
 
 func TestDiscordLoginCallbackAllowsOnlyLinkedUser(t *testing.T) {
 	a := newDiscordOAuthTestApp(t, discordOAuthConfig{
-		ClientID:       "123456789012345678",
-		ClientSecret:   "secret",
-		RedirectURI:    "https://paste.example.com/ra/discord/callback",
-		LinkedUserID:   "222222222222222222",
-		LinkedUsername: "linked-admin",
+		ClientID:     "123456789012345678",
+		ClientSecret: "secret",
+		RedirectURI:  "https://paste.example.com/ra/discord/callback",
 	})
+	storeDiscordOAuthAdmin(t, a, "222222222222222222", "linked-admin")
 	restore := useDiscordOAuthTestServer(t, `{"id":"222222222222222222","username":"linked-admin","global_name":"Linked Admin","avatar":"avatar-hash"}`)
 	defer restore()
 
@@ -71,15 +72,51 @@ func TestDiscordLoginCallbackAllowsOnlyLinkedUser(t *testing.T) {
 	}
 }
 
+func TestDiscordLoginAllowsEveryLinkedAdmin(t *testing.T) {
+	admins := []struct {
+		id       string
+		username string
+	}{
+		{"222222222222222222", "first-admin"},
+		{"333333333333333333", "second-admin"},
+	}
+
+	for _, loginAdmin := range admins {
+		t.Run(loginAdmin.username, func(t *testing.T) {
+			a := newDiscordOAuthTestApp(t, discordOAuthConfig{
+				ClientID:     "123456789012345678",
+				ClientSecret: "secret",
+				RedirectURI:  "https://paste.example.com/ra/discord/callback",
+			})
+			for _, admin := range admins {
+				storeDiscordOAuthAdmin(t, a, admin.id, admin.username)
+			}
+			restore := useDiscordOAuthTestServer(t, fmt.Sprintf(`{"id":%q,"username":%q,"global_name":null,"avatar":null}`, loginAdmin.id, loginAdmin.username))
+			defer restore()
+
+			state := "validOAuthState1234567890"
+			storeDiscordOAuthState(t, a, state, discordOAuthIntentLogin)
+			req := httptest.NewRequest(http.MethodGet, "/ra/discord/callback?code=test-code&state="+state, nil)
+			req.AddCookie(&http.Cookie{Name: discordOAuthStateCookieName, Value: state, Path: "/ra/discord"})
+			rec := httptest.NewRecorder()
+
+			a.discordCallbackHandler(rec, req)
+
+			if rec.Code != http.StatusSeeOther || rec.Header().Get("Location") != "/ra" {
+				t.Fatalf("expected linked admin %s to log in, got %d %q", loginAdmin.id, rec.Code, rec.Header().Get("Location"))
+			}
+		})
+	}
+}
+
 func TestDiscordOAuthSettingsAndStateAreSharedAcrossServers(t *testing.T) {
 	shared := newMemoryDiscordOAuthStore()
 	nodeA := newDiscordOAuthTestAppWithStore(t, discordOAuthConfig{
-		ClientID:       "123456789012345678",
-		ClientSecret:   "secret",
-		RedirectURI:    "https://paste.example.com/ra/discord/callback",
-		LinkedUserID:   "222222222222222222",
-		LinkedUsername: "linked-admin",
+		ClientID:     "123456789012345678",
+		ClientSecret: "secret",
+		RedirectURI:  "https://paste.example.com/ra/discord/callback",
 	}, shared)
+	storeDiscordOAuthAdmin(t, nodeA, "222222222222222222", "linked-admin")
 	nodeB := newDiscordOAuthTestAppWithStore(t, discordOAuthConfig{}, shared)
 	restore := useDiscordOAuthTestServer(t, `{"id":"222222222222222222","username":"linked-admin","global_name":"Linked Admin","avatar":"avatar-hash"}`)
 	defer restore()
@@ -121,12 +158,11 @@ func TestDiscordOAuthSettingsAndStateAreSharedAcrossServers(t *testing.T) {
 
 func TestDiscordLoginCallbackRejectsDifferentUser(t *testing.T) {
 	a := newDiscordOAuthTestApp(t, discordOAuthConfig{
-		ClientID:       "123456789012345678",
-		ClientSecret:   "secret",
-		RedirectURI:    "https://paste.example.com/ra/discord/callback",
-		LinkedUserID:   "222222222222222222",
-		LinkedUsername: "linked-admin",
+		ClientID:     "123456789012345678",
+		ClientSecret: "secret",
+		RedirectURI:  "https://paste.example.com/ra/discord/callback",
 	})
+	storeDiscordOAuthAdmin(t, a, "222222222222222222", "linked-admin")
 	restore := useDiscordOAuthTestServer(t, `{"id":"333333333333333333","username":"not-linked","global_name":"Not Linked","avatar":null}`)
 	defer restore()
 
@@ -152,6 +188,7 @@ func TestDiscordLinkCallbackPersistsSelectedAccount(t *testing.T) {
 		ClientSecret: "secret",
 		RedirectURI:  "https://paste.example.com/ra/discord/callback",
 	})
+	storeDiscordOAuthAdmin(t, a, "333333333333333333", "existing-admin")
 	restore := useDiscordOAuthTestServer(t, `{"id":"222222222222222222","username":"linked-admin","global_name":"Linked Admin","avatar":"avatar-hash"}`)
 	defer restore()
 
@@ -167,12 +204,45 @@ func TestDiscordLinkCallbackPersistsSelectedAccount(t *testing.T) {
 	if rec.Code != http.StatusSeeOther || rec.Header().Get("Location") != "/ra/discord?status=linked" {
 		t.Fatalf("expected successful link redirect, got %d %q", rec.Code, rec.Header().Get("Location"))
 	}
-	cfg, err := a.getDiscordOAuthConfig()
+	linked, err := a.discordOAuthStore.IsDiscordOAuthAdmin("222222222222222222")
 	if err != nil {
-		t.Fatalf("failed to load persisted OAuth settings: %v", err)
+		t.Fatalf("failed to load persisted OAuth admin: %v", err)
 	}
-	if got := cfg.LinkedUserID; got != "222222222222222222" {
-		t.Fatalf("expected linked user ID to update, got %q", got)
+	if !linked {
+		t.Fatal("expected linked user ID to be added to the admin list")
+	}
+	admins, err := a.discordOAuthStore.ListDiscordOAuthAdmins()
+	if err != nil {
+		t.Fatalf("failed to list OAuth admins: %v", err)
+	}
+	if len(admins) != 2 {
+		t.Fatalf("adding an admin must preserve existing admins, got %d entries", len(admins))
+	}
+}
+
+func TestDiscordUnlinkRemovesOnlySelectedAdmin(t *testing.T) {
+	a := newDiscordOAuthTestApp(t, discordOAuthConfig{})
+	storeDiscordOAuthAdmin(t, a, "222222222222222222", "first-admin")
+	storeDiscordOAuthAdmin(t, a, "333333333333333333", "second-admin")
+	form := url.Values{
+		"csrf_token": {"csrf-token"},
+		"user_id":    {"222222222222222222"},
+	}
+	req := httptest.NewRequest(http.MethodPost, "/ra/discord/unlink", strings.NewReader(form.Encode()))
+	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+	req.AddCookie(&http.Cookie{Name: "admin_token", Value: "master-token", Path: "/ra"})
+	req.AddCookie(&http.Cookie{Name: "csrf_token", Value: "csrf-token", Path: "/ra"})
+	rec := httptest.NewRecorder()
+
+	a.adminDiscordUnlinkHandler(rec, req)
+
+	if rec.Code != http.StatusSeeOther || rec.Header().Get("Location") != "/ra/discord?status=unlinked" {
+		t.Fatalf("expected unlink redirect, got %d %q", rec.Code, rec.Header().Get("Location"))
+	}
+	first, _ := a.discordOAuthStore.IsDiscordOAuthAdmin("222222222222222222")
+	second, _ := a.discordOAuthStore.IsDiscordOAuthAdmin("333333333333333333")
+	if first || !second {
+		t.Fatalf("expected only selected admin to be removed, first=%v second=%v", first, second)
 	}
 }
 
@@ -211,23 +281,22 @@ func TestDiscordLinkCallbackRequiresActiveAdminSession(t *testing.T) {
 	if rec.Code != http.StatusUnauthorized {
 		t.Fatalf("expected link callback without an admin session to be rejected with 401, got %d", rec.Code)
 	}
-	cfg, err := a.getDiscordOAuthConfig()
+	linked, err := a.hasDiscordOAuthAdmins()
 	if err != nil {
-		t.Fatalf("failed to load OAuth settings: %v", err)
+		t.Fatalf("failed to load OAuth admins: %v", err)
 	}
-	if cfg.linked() {
+	if linked {
 		t.Fatal("link callback without an admin session must not update the linked account")
 	}
 }
 
 func TestDiscordLoginStartUsesIdentifyScopeAndStateCookie(t *testing.T) {
 	a := newDiscordOAuthTestApp(t, discordOAuthConfig{
-		ClientID:       "123456789012345678",
-		ClientSecret:   "secret",
-		RedirectURI:    "https://paste.example.com/ra/discord/callback",
-		LinkedUserID:   "222222222222222222",
-		LinkedUsername: "linked-admin",
+		ClientID:     "123456789012345678",
+		ClientSecret: "secret",
+		RedirectURI:  "https://paste.example.com/ra/discord/callback",
 	})
+	storeDiscordOAuthAdmin(t, a, "222222222222222222", "linked-admin")
 	req := httptest.NewRequest(http.MethodGet, "https://paste.example.com/ra/discord/login", nil)
 	rec := httptest.NewRecorder()
 
@@ -261,12 +330,11 @@ func TestDiscordLoginStartUsesIdentifyScopeAndStateCookie(t *testing.T) {
 
 func TestDiscordLoginStartAllowsHTTPDevelopmentStateCookie(t *testing.T) {
 	a := newDiscordOAuthTestApp(t, discordOAuthConfig{
-		ClientID:       "123456789012345678",
-		ClientSecret:   "secret",
-		RedirectURI:    "http://localhost:8080/ra/discord/callback",
-		LinkedUserID:   "222222222222222222",
-		LinkedUsername: "linked-admin",
+		ClientID:     "123456789012345678",
+		ClientSecret: "secret",
+		RedirectURI:  "http://localhost:8080/ra/discord/callback",
 	})
+	storeDiscordOAuthAdmin(t, a, "222222222222222222", "linked-admin")
 	req := httptest.NewRequest(http.MethodGet, "http://localhost:8080/ra/discord/login", nil)
 	rec := httptest.NewRecorder()
 
@@ -337,13 +405,12 @@ func TestPersistConfigValuesTightensExistingPermissions(t *testing.T) {
 
 func TestAdminDiscordSettingsClientIDChangeRequiresRelink(t *testing.T) {
 	a := newDiscordOAuthTestApp(t, discordOAuthConfig{
-		ClientID:         "123456789012345678",
-		ClientSecret:     "old-secret",
-		RedirectURI:      "https://paste.example.com/ra/discord/callback",
-		LinkedUserID:     "222222222222222222",
-		LinkedUsername:   "linked-admin",
-		LinkedGlobalName: "Linked Admin",
+		ClientID:     "123456789012345678",
+		ClientSecret: "old-secret",
+		RedirectURI:  "https://paste.example.com/ra/discord/callback",
 	})
+	storeDiscordOAuthAdmin(t, a, "222222222222222222", "linked-admin")
+	storeDiscordOAuthAdmin(t, a, "333333333333333333", "second-admin")
 	form := url.Values{
 		"csrf_token":    {"csrf-token"},
 		"client_id":     {"987654321098765432"},
@@ -368,8 +435,12 @@ func TestAdminDiscordSettingsClientIDChangeRequiresRelink(t *testing.T) {
 	if cfg.ClientID != "987654321098765432" || cfg.ClientSecret != "new-secret" {
 		t.Fatalf("OAuth settings were not updated: %#v", cfg)
 	}
-	if cfg.linked() {
-		t.Fatalf("changing the Client ID must clear the linked account: %#v", cfg)
+	linked, err := a.hasDiscordOAuthAdmins()
+	if err != nil {
+		t.Fatalf("failed to load OAuth admins: %v", err)
+	}
+	if linked {
+		t.Fatal("changing the Client ID must clear every linked account")
 	}
 }
 
@@ -405,7 +476,7 @@ func newDiscordOAuthTestApp(t *testing.T, cfg discordOAuthConfig) *app {
 func newDiscordOAuthTestAppWithStore(t *testing.T, cfg discordOAuthConfig, store *memoryDiscordOAuthStore) *app {
 	t.Helper()
 	if cfg != (discordOAuthConfig{}) {
-		if err := store.SaveDiscordOAuthSettings(cfg.storageSettings()); err != nil {
+		if err := store.SaveDiscordOAuthSettings(cfg.storageSettings(), false); err != nil {
 			t.Fatalf("failed to seed OAuth settings: %v", err)
 		}
 	}
@@ -429,15 +500,30 @@ func storeDiscordOAuthState(t *testing.T, a *app, state, intent string) {
 	}
 }
 
+func storeDiscordOAuthAdmin(t *testing.T, a *app, userID, username string) {
+	t.Helper()
+	if err := a.discordOAuthStore.UpsertDiscordOAuthAdmin(pastebox.DiscordOAuthAdmin{
+		UserID:   userID,
+		Username: username,
+		LinkedAt: time.Now().UTC(),
+	}); err != nil {
+		t.Fatalf("failed to store OAuth admin: %v", err)
+	}
+}
+
 type memoryDiscordOAuthStore struct {
 	mu          sync.Mutex
 	settings    pastebox.DiscordOAuthSettings
 	hasSettings bool
+	admins      map[string]pastebox.DiscordOAuthAdmin
 	states      map[string]pastebox.DiscordOAuthPendingState
 }
 
 func newMemoryDiscordOAuthStore() *memoryDiscordOAuthStore {
-	return &memoryDiscordOAuthStore{states: make(map[string]pastebox.DiscordOAuthPendingState)}
+	return &memoryDiscordOAuthStore{
+		admins: make(map[string]pastebox.DiscordOAuthAdmin),
+		states: make(map[string]pastebox.DiscordOAuthPendingState),
+	}
 }
 
 func (s *memoryDiscordOAuthStore) LoadDiscordOAuthSettings() (pastebox.DiscordOAuthSettings, bool, error) {
@@ -446,11 +532,60 @@ func (s *memoryDiscordOAuthStore) LoadDiscordOAuthSettings() (pastebox.DiscordOA
 	return s.settings, s.hasSettings, nil
 }
 
-func (s *memoryDiscordOAuthStore) SaveDiscordOAuthSettings(settings pastebox.DiscordOAuthSettings) error {
+func (s *memoryDiscordOAuthStore) SaveDiscordOAuthSettings(settings pastebox.DiscordOAuthSettings, clearAdmins bool) error {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	s.settings = settings
 	s.hasSettings = true
+	if clearAdmins {
+		clear(s.admins)
+	}
+	return nil
+}
+
+func (s *memoryDiscordOAuthStore) ListDiscordOAuthAdmins() ([]pastebox.DiscordOAuthAdmin, error) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	admins := make([]pastebox.DiscordOAuthAdmin, 0, len(s.admins))
+	for _, admin := range s.admins {
+		admins = append(admins, admin)
+	}
+	sort.Slice(admins, func(i, j int) bool {
+		if admins[i].LinkedAt.Equal(admins[j].LinkedAt) {
+			return admins[i].UserID < admins[j].UserID
+		}
+		return admins[i].LinkedAt.Before(admins[j].LinkedAt)
+	})
+	return admins, nil
+}
+
+func (s *memoryDiscordOAuthStore) HasDiscordOAuthAdmins() (bool, error) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	return len(s.admins) > 0, nil
+}
+
+func (s *memoryDiscordOAuthStore) IsDiscordOAuthAdmin(userID string) (bool, error) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	_, exists := s.admins[userID]
+	return exists, nil
+}
+
+func (s *memoryDiscordOAuthStore) UpsertDiscordOAuthAdmin(admin pastebox.DiscordOAuthAdmin) error {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	if previous, exists := s.admins[admin.UserID]; exists {
+		admin.LinkedAt = previous.LinkedAt
+	}
+	s.admins[admin.UserID] = admin
+	return nil
+}
+
+func (s *memoryDiscordOAuthStore) DeleteDiscordOAuthAdmin(userID string) error {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	delete(s.admins, userID)
 	return nil
 }
 

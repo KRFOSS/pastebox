@@ -278,13 +278,14 @@
     .scope-note { color: var(--text-muted); font-size: 10px; line-height: 1.5; }
     .scope-note strong { color: var(--text-soft); font-family: var(--font-mono); }
 
-    .account-state {
-      min-height: 265px;
-      display: flex;
-      flex-direction: column;
-      justify-content: center;
-      text-align: center;
-    }
+    .account-state { min-height: 265px; }
+    .account-list { display: grid; gap: 10px; }
+    .account-card { display: flex; align-items: center; gap: 13px; padding: 13px; border: 1px solid var(--border); border-radius: 14px; background: rgba(255,255,255,.025); }
+    .account-info { min-width: 0; flex: 1; }
+    .account-card .account-title, .account-card .account-subtitle { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .account-empty { min-height: 170px; display: flex; flex-direction: column; align-items: center; justify-content: center; text-align: center; }
+    .account-toolbar { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-bottom: 14px; }
+    .account-count { color: var(--text-muted); font-size: 10px; }
 
     .discord-avatar {
       width: 68px;
@@ -292,7 +293,8 @@
       display: grid;
       place-items: center;
       overflow: hidden;
-      margin: 0 auto 17px;
+      flex: 0 0 auto;
+      margin: 0;
       color: #fff;
       border: 1px solid rgba(255,255,255,.13);
       border-radius: 22px;
@@ -306,6 +308,7 @@
     .account-subtitle { margin: 7px 0 0; color: var(--text-muted); font-family: var(--font-mono); font-size: 10px; }
     .account-description { max-width: 330px; margin: 16px auto 21px; color: var(--text-soft); font-size: 11px; line-height: 1.65; }
     .account-actions { display: flex; justify-content: center; flex-wrap: wrap; gap: 8px; }
+    .account-card .account-actions { flex: 0 0 auto; }
 
     .security-panel { margin-top: 18px; padding: 18px 20px; border: 1px solid var(--border); border-radius: 16px; background: rgba(255,255,255,.02); }
     .security-title { margin: 0 0 8px; font-size: 12px; font-weight: 760; }
@@ -330,6 +333,8 @@
       .status span:last-child { display: none; }
       .form-actions { align-items: stretch; flex-direction: column; }
       .form-actions .button { width: 100%; }
+      .account-card { align-items: flex-start; flex-wrap: wrap; }
+      .account-card .account-actions { width: 100%; justify-content: flex-end; }
     }
 
     @media (prefers-reduced-motion: reduce) {
@@ -370,7 +375,7 @@
       <div>
         <p class="eyebrow">Authentication</p>
         <h1>Discord 로그인 설정</h1>
-        <p class="page-description">Discord 애플리케이션 정보를 저장한 뒤, 관리자 토큰으로 로그인한 현재 세션에서 허용할 Discord 계정을 직접 연동합니다.</p>
+        <p class="page-description">Discord 애플리케이션 정보를 저장한 뒤, 관리자 토큰으로 로그인한 현재 세션에서 허용할 Discord 관리자 계정을 필요한 만큼 연동합니다.</p>
       </div>
       <a class="button" href="https://discord.com/developers/applications" target="_blank" rel="noopener noreferrer">
         Discord Developer Portal
@@ -441,40 +446,50 @@
             </span>
             <div>
               <h2 class="section-title" id="linked-account-title">허용된 관리자 계정</h2>
-              <p class="section-description">연동된 한 계정만 Discord 로그인이 허용됩니다.</p>
+              <p class="section-description">목록에 등록된 모든 계정의 Discord 로그인을 허용합니다.</p>
             </div>
           </div>
           <span class="status {{ if .DiscordLinked }}status-ready{{ end }}">
             <span class="status-dot"></span>
-            <span>{{ if .DiscordLinked }}연동됨{{ else }}미연동{{ end }}</span>
+            <span>{{ if .DiscordLinked }}{{ .DiscordAdminCount }}명 연동{{ else }}미연동{{ end }}</span>
           </span>
         </div>
 
         <div class="surface-body account-state">
-          <div class="discord-avatar" aria-hidden="true">
-            {{ if .LinkedAvatarURL }}
-            <img src="{{ .LinkedAvatarURL }}" alt="">
-            {{ else }}
-            <svg viewBox="0 0 24 24"><path d="M19.5 5.3A17.3 17.3 0 0 0 15.4 4l-.5 1.1a15.7 15.7 0 0 0-5.8 0L8.6 4a17.2 17.2 0 0 0-4.1 1.3C1.9 9.2 1.2 13 1.5 16.8a16.6 16.6 0 0 0 5 2.5l1.2-1.7a10.5 10.5 0 0 1-1.9-.9l.5-.4a12.4 12.4 0 0 0 11.4 0l.5.4c-.6.4-1.2.7-1.9.9l1.2 1.7a16.6 16.6 0 0 0 5-2.5c.4-4.4-.7-8.2-3-11.5ZM8.5 14.5c-1 0-1.8-.9-1.8-2s.8-2 1.8-2 1.8.9 1.8 2-.8 2-1.8 2Zm7 0c-1 0-1.8-.9-1.8-2s.8-2 1.8-2 1.8.9 1.8 2-.8 2-1.8 2Z"/></svg>
-            {{ end }}
+          <div class="account-toolbar">
+            <span class="account-count">등록된 관리자 {{ .DiscordAdminCount }}명</span>
+            <a class="button button-discord" href="/ra/discord/link" {{ if not .OAuthConfigured }}aria-disabled="true" title="먼저 OAuth 설정을 저장해 주세요"{{ end }}>관리자 계정 추가</a>
           </div>
 
           {{ if .DiscordLinked }}
-          <h3 class="account-title">{{ .LinkedDisplayName }}</h3>
-          <p class="account-subtitle">@{{ .LinkedUsername }} · {{ .LinkedUserID }}</p>
-          <p class="account-description">이 Discord 사용자 ID와 일치하는 계정만 관리자 세션을 만들 수 있습니다. 다른 계정은 OAuth가 성공해도 거부됩니다.</p>
-          <div class="account-actions">
-            <a class="button button-discord" href="/ra/discord/link">다른 계정으로 다시 연동</a>
-            <form action="/ra/discord/unlink" method="POST" onsubmit="return confirm('Discord 계정 연동을 해제할까요?');">
-              <input type="hidden" name="csrf_token" value="{{ .CSRFToken }}">
-              <button class="button button-danger" type="submit">연동 해제</button>
-            </form>
+          <div class="account-list">
+            {{ range .DiscordAdmins }}
+            <article class="account-card">
+              <div class="discord-avatar" aria-hidden="true">
+                {{ if .AvatarURL }}
+                <img src="{{ .AvatarURL }}" alt="">
+                {{ else }}
+                <svg viewBox="0 0 24 24"><path d="M19.5 5.3A17.3 17.3 0 0 0 15.4 4l-.5 1.1a15.7 15.7 0 0 0-5.8 0L8.6 4a17.2 17.2 0 0 0-4.1 1.3C1.9 9.2 1.2 13 1.5 16.8a16.6 16.6 0 0 0 5 2.5l1.2-1.7a10.5 10.5 0 0 1-1.9-.9l.5-.4a12.4 12.4 0 0 0 11.4 0l.5.4c-.6.4-1.2.7-1.9.9l1.2 1.7a16.6 16.6 0 0 0 5-2.5c.4-4.4-.7-8.2-3-11.5ZM8.5 14.5c-1 0-1.8-.9-1.8-2s.8-2 1.8-2 1.8.9 1.8 2-.8 2-1.8 2Zm7 0c-1 0-1.8-.9-1.8-2s.8-2 1.8-2 1.8.9 1.8 2-.8 2-1.8 2Z"/></svg>
+                {{ end }}
+              </div>
+              <div class="account-info">
+                <h3 class="account-title">{{ .DisplayName }}</h3>
+                <p class="account-subtitle">@{{ .Username }} · {{ .UserID }}</p>
+              </div>
+              <div class="account-actions">
+                <form action="/ra/discord/unlink" method="POST" onsubmit="return confirm('이 Discord 관리자 계정의 연동을 해제할까요?');">
+                  <input type="hidden" name="csrf_token" value="{{ $.CSRFToken }}">
+                  <input type="hidden" name="user_id" value="{{ .UserID }}">
+                  <button class="button button-danger" type="submit">연동 해제</button>
+                </form>
+              </div>
+            </article>
+            {{ end }}
           </div>
           {{ else }}
-          <h3 class="account-title">연동된 계정이 없습니다</h3>
-          <p class="account-description">먼저 OAuth 애플리케이션 값을 저장한 다음, 관리자 로그인을 허용할 Discord 계정을 연동하세요. 미연동 상태에서는 모든 Discord 로그인이 거부됩니다.</p>
-          <div class="account-actions">
-            <a class="button button-discord" href="/ra/discord/link" {{ if not .OAuthConfigured }}aria-disabled="true" title="먼저 OAuth 설정을 저장해 주세요"{{ end }}>Discord 계정 연동</a>
+          <div class="account-empty">
+            <h3 class="account-title">연동된 계정이 없습니다</h3>
+            <p class="account-description">먼저 OAuth 애플리케이션 값을 저장한 다음 관리자 계정을 추가하세요. 목록이 비어 있으면 모든 Discord 로그인이 거부됩니다.</p>
           </div>
           {{ end }}
         </div>
@@ -487,7 +502,8 @@
         <li>일반 Discord 로그인에서는 계정을 자동 등록하지 않습니다.</li>
         <li>OAuth 요청은 10분 동안만 유효한 일회성 state 값으로 검증합니다.</li>
         <li>Discord 액세스 토큰과 리프레시 토큰은 저장하지 않고 사용자 ID 확인에만 사용합니다.</li>
-        <li>Discord 로그인을 해제하거나 다른 Client ID로 변경하면 다시 연동하기 전까지 로그인이 차단됩니다.</li>
+        <li>관리자 계정은 여러 명 등록할 수 있으며 목록에 없는 Discord 계정은 항상 거부됩니다.</li>
+        <li>Client ID를 변경하면 기존 관리자 계정 연동은 모두 해제됩니다.</li>
       </ul>
     </section>
   </main>

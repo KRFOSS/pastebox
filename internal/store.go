@@ -44,13 +44,17 @@ type Storage interface {
 }
 
 type DiscordOAuthSettings struct {
-	ClientID         string
-	ClientSecret     string
-	RedirectURI      string
-	LinkedUserID     string
-	LinkedUsername   string
-	LinkedGlobalName string
-	LinkedAvatar     string
+	ClientID     string
+	ClientSecret string
+	RedirectURI  string
+}
+
+type DiscordOAuthAdmin struct {
+	UserID     string
+	Username   string
+	GlobalName string
+	Avatar     string
+	LinkedAt   time.Time
 }
 
 type DiscordOAuthPendingState struct {
@@ -61,7 +65,12 @@ type DiscordOAuthPendingState struct {
 
 type DiscordOAuthStorage interface {
 	LoadDiscordOAuthSettings() (DiscordOAuthSettings, bool, error)
-	SaveDiscordOAuthSettings(settings DiscordOAuthSettings) error
+	SaveDiscordOAuthSettings(settings DiscordOAuthSettings, clearAdmins bool) error
+	ListDiscordOAuthAdmins() ([]DiscordOAuthAdmin, error)
+	HasDiscordOAuthAdmins() (bool, error)
+	IsDiscordOAuthAdmin(userID string) (bool, error)
+	UpsertDiscordOAuthAdmin(admin DiscordOAuthAdmin) error
+	DeleteDiscordOAuthAdmin(userID string) error
 	CreateDiscordOAuthState(state DiscordOAuthPendingState) error
 	ConsumeDiscordOAuthState(state string, now time.Time) (DiscordOAuthPendingState, bool, error)
 }
@@ -642,6 +651,47 @@ func (s *DBStore) autoMigrate() error {
 		return err
 	}
 
+	discordAdminsQuery := `
+	CREATE TABLE IF NOT EXISTS discord_oauth_admins (
+		user_id VARCHAR(32) NOT NULL PRIMARY KEY,
+		username VARCHAR(255) NOT NULL,
+		global_name VARCHAR(255) NOT NULL,
+		avatar VARCHAR(255) NOT NULL,
+		linked_at DATETIME(6) NOT NULL,
+		INDEX idx_discord_oauth_admins_linked_at (linked_at)
+	) ENGINE=InnoDB;`
+	if _, err := s.db.Exec(discordAdminsQuery); err != nil {
+		return err
+	}
+
+	// 기존 단일 연동 계정이 있으면 다중 관리자 테이블로 한 번만 승계합니다.
+	migration, err := s.db.Begin()
+	if err != nil {
+		return err
+	}
+	if _, err := migration.Exec(`
+		INSERT INTO discord_oauth_admins (user_id, username, global_name, avatar, linked_at)
+		SELECT linked_user_id, linked_username, linked_global_name, linked_avatar, updated_at
+		FROM discord_oauth_settings
+		WHERE id = 1 AND linked_user_id <> ''
+		ON DUPLICATE KEY UPDATE
+			username = VALUES(username),
+			global_name = VALUES(global_name),
+			avatar = VALUES(avatar)`); err != nil {
+		_ = migration.Rollback()
+		return err
+	}
+	if _, err := migration.Exec(`
+		UPDATE discord_oauth_settings
+		SET linked_user_id = '', linked_username = '', linked_global_name = '', linked_avatar = ''
+		WHERE id = 1 AND linked_user_id <> ''`); err != nil {
+		_ = migration.Rollback()
+		return err
+	}
+	if err := migration.Commit(); err != nil {
+		return err
+	}
+
 	discordStatesQuery := `
 	CREATE TABLE IF NOT EXISTS discord_oauth_states (
 		state CHAR(48) CHARACTER SET ascii COLLATE ascii_bin NOT NULL PRIMARY KEY,
@@ -1059,17 +1109,12 @@ func (s *DBStore) DeleteAll() error {
 func (s *DBStore) LoadDiscordOAuthSettings() (DiscordOAuthSettings, bool, error) {
 	var settings DiscordOAuthSettings
 	err := s.db.QueryRow(`
-		SELECT client_id, client_secret, redirect_uri, linked_user_id,
-		       linked_username, linked_global_name, linked_avatar
+		SELECT client_id, client_secret, redirect_uri
 		FROM discord_oauth_settings
 		WHERE id = 1`).Scan(
 		&settings.ClientID,
 		&settings.ClientSecret,
 		&settings.RedirectURI,
-		&settings.LinkedUserID,
-		&settings.LinkedUsername,
-		&settings.LinkedGlobalName,
-		&settings.LinkedAvatar,
 	)
 	if errors.Is(err, sql.ErrNoRows) {
 		return DiscordOAuthSettings{}, false, nil
@@ -1080,30 +1125,93 @@ func (s *DBStore) LoadDiscordOAuthSettings() (DiscordOAuthSettings, bool, error)
 	return settings, true, nil
 }
 
-func (s *DBStore) SaveDiscordOAuthSettings(settings DiscordOAuthSettings) error {
-	_, err := s.db.Exec(`
+func (s *DBStore) SaveDiscordOAuthSettings(settings DiscordOAuthSettings, clearAdmins bool) error {
+	tx, err := s.db.Begin()
+	if err != nil {
+		return err
+	}
+	defer tx.Rollback()
+
+	if _, err := tx.Exec(`
 		INSERT INTO discord_oauth_settings (
 			id, client_id, client_secret, redirect_uri, linked_user_id,
 			linked_username, linked_global_name, linked_avatar, updated_at
-		) VALUES (1, ?, ?, ?, ?, ?, ?, ?, ?)
+		) VALUES (1, ?, ?, ?, '', '', '', '', ?)
 		ON DUPLICATE KEY UPDATE
 			client_id = VALUES(client_id),
 			client_secret = VALUES(client_secret),
 			redirect_uri = VALUES(redirect_uri),
-			linked_user_id = VALUES(linked_user_id),
-			linked_username = VALUES(linked_username),
-			linked_global_name = VALUES(linked_global_name),
-			linked_avatar = VALUES(linked_avatar),
+			linked_user_id = '',
+			linked_username = '',
+			linked_global_name = '',
+			linked_avatar = '',
 			updated_at = VALUES(updated_at)`,
 		settings.ClientID,
 		settings.ClientSecret,
 		settings.RedirectURI,
-		settings.LinkedUserID,
-		settings.LinkedUsername,
-		settings.LinkedGlobalName,
-		settings.LinkedAvatar,
 		time.Now().UTC(),
-	)
+	); err != nil {
+		return err
+	}
+	if clearAdmins {
+		if _, err := tx.Exec(`DELETE FROM discord_oauth_admins`); err != nil {
+			return err
+		}
+	}
+	return tx.Commit()
+}
+
+func (s *DBStore) ListDiscordOAuthAdmins() ([]DiscordOAuthAdmin, error) {
+	rows, err := s.db.Query(`
+		SELECT user_id, username, global_name, avatar, linked_at
+		FROM discord_oauth_admins
+		ORDER BY linked_at ASC, user_id ASC`)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	admins := make([]DiscordOAuthAdmin, 0)
+	for rows.Next() {
+		var admin DiscordOAuthAdmin
+		if err := rows.Scan(&admin.UserID, &admin.Username, &admin.GlobalName, &admin.Avatar, &admin.LinkedAt); err != nil {
+			return nil, err
+		}
+		admins = append(admins, admin)
+	}
+	return admins, rows.Err()
+}
+
+func (s *DBStore) HasDiscordOAuthAdmins() (bool, error) {
+	var exists bool
+	err := s.db.QueryRow(`SELECT EXISTS(SELECT 1 FROM discord_oauth_admins LIMIT 1)`).Scan(&exists)
+	return exists, err
+}
+
+func (s *DBStore) IsDiscordOAuthAdmin(userID string) (bool, error) {
+	var exists bool
+	err := s.db.QueryRow(`SELECT EXISTS(SELECT 1 FROM discord_oauth_admins WHERE user_id = ?)`, userID).Scan(&exists)
+	return exists, err
+}
+
+func (s *DBStore) UpsertDiscordOAuthAdmin(admin DiscordOAuthAdmin) error {
+	linkedAt := admin.LinkedAt.UTC()
+	if linkedAt.IsZero() {
+		linkedAt = time.Now().UTC()
+	}
+	_, err := s.db.Exec(`
+		INSERT INTO discord_oauth_admins (user_id, username, global_name, avatar, linked_at)
+		VALUES (?, ?, ?, ?, ?)
+		ON DUPLICATE KEY UPDATE
+			username = VALUES(username),
+			global_name = VALUES(global_name),
+			avatar = VALUES(avatar)`,
+		admin.UserID, admin.Username, admin.GlobalName, admin.Avatar, linkedAt)
+	return err
+}
+
+func (s *DBStore) DeleteDiscordOAuthAdmin(userID string) error {
+	_, err := s.db.Exec(`DELETE FROM discord_oauth_admins WHERE user_id = ?`, userID)
 	return err
 }
 
