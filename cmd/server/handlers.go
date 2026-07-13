@@ -39,10 +39,15 @@ type app struct {
 	password            *template.Template
 	adminLogin          *template.Template
 	adminDashboard      *template.Template
+	adminDiscord        *template.Template
 	adminToken          string
+	configPath          string
 	expireDays          int
 	maxUploadSize       int64
 	homeBackgroundImage string
+	discordOAuth        discordOAuthConfig
+	discordOAuthStates  map[string]discordOAuthState
+	discordHTTPClient   *http.Client
 	mu                  sync.RWMutex
 }
 
@@ -360,6 +365,7 @@ func policyFromKeyword(s string) string {
 //   - /pw/12345/temp    → custom=12345, policy=once
 //   - /pw/temp/temp     → custom=temp,  policy=once
 //   - /pw/week          → custom="",    policy=week (비밀번호는 헤더로만 지정 가능)
+//
 // 끝의 /json 접미사는 응답 형식 제어용이라 무시하며, /pw·/pw/json 같은 랜덤 경로는 ok=false입니다.
 func parsePwUploadPath(p string) (custom string, policy string, ok bool) {
 	p = strings.TrimSuffix(p, "/json")

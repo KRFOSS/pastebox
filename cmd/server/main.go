@@ -31,6 +31,8 @@ func main() {
 	maxUploadSizeMB := int64(10)
 	rateLimitPerSec := getenvFloat("RATE_LIMIT_PER_SEC", 2)
 	rateBurst := getenvFloat("RATE_LIMIT_BURST", 10)
+	homeBackgroundImage := ""
+	discordOAuth := discordOAuthConfig{}
 
 	cfg, err := loadConfig("config.conf")
 	if err == nil {
@@ -63,6 +65,16 @@ func main() {
 		if cfg.RateBurst > 0 {
 			rateBurst = cfg.RateBurst
 		}
+		homeBackgroundImage = cfg.HomeBackgroundImage
+		discordOAuth = discordOAuthConfig{
+			ClientID:         cfg.DiscordOAuthClientID,
+			ClientSecret:     cfg.DiscordOAuthClientSecret,
+			RedirectURI:      cfg.DiscordOAuthRedirectURI,
+			LinkedUserID:     cfg.DiscordLinkedUserID,
+			LinkedUsername:   cfg.DiscordLinkedUsername,
+			LinkedGlobalName: cfg.DiscordLinkedGlobalName,
+			LinkedAvatar:     cfg.DiscordLinkedAvatar,
+		}
 		log.Println("설정 파일(config.conf)이 성공적으로 로드되었습니다.")
 	} else {
 		if !errors.Is(err, os.ErrNotExist) {
@@ -90,7 +102,7 @@ func main() {
 		}
 	}
 
-	indexTmpl, pasteTmpl, passwordTmpl, adminLoginTmpl, adminDashTmpl := loadTemplates()
+	indexTmpl, pasteTmpl, passwordTmpl, adminLoginTmpl, adminDashTmpl, adminDiscordTmpl := loadTemplates()
 
 	a := &app{
 		store:               store,
@@ -99,10 +111,15 @@ func main() {
 		password:            passwordTmpl,
 		adminLogin:          adminLoginTmpl,
 		adminDashboard:      adminDashTmpl,
+		adminDiscord:        adminDiscordTmpl,
 		adminToken:          adminToken,
+		configPath:          "config.conf",
 		expireDays:          expireDays,
 		maxUploadSize:       maxUploadSizeMB * 1024 * 1024,
-		homeBackgroundImage: cfg.HomeBackgroundImage,
+		homeBackgroundImage: homeBackgroundImage,
+		discordOAuth:        discordOAuth,
+		discordOAuthStates:  make(map[string]discordOAuthState),
+		discordHTTPClient:   &http.Client{Timeout: 10 * time.Second},
 	}
 
 	go func() {
@@ -128,6 +145,12 @@ func main() {
 	mux.HandleFunc("/ra/delete-all", a.adminDeleteAllHandler)
 	mux.HandleFunc("/ra/limit", a.adminUpdateLimitHandler)
 	mux.HandleFunc("/ra/home-bg", a.adminUpdateHomeBgHandler)
+	mux.HandleFunc("/ra/discord", a.adminDiscordHandler)
+	mux.HandleFunc("/ra/discord/settings", a.adminDiscordSettingsHandler)
+	mux.HandleFunc("/ra/discord/link", a.adminDiscordLinkHandler)
+	mux.HandleFunc("/ra/discord/unlink", a.adminDiscordUnlinkHandler)
+	mux.HandleFunc("/ra/discord/login", uploadLimiter.middleware(a.discordLoginHandler))
+	mux.HandleFunc("/ra/discord/callback", a.discordCallbackHandler)
 
 	log.Printf("서버가 %s 주소에서 대기 중입니다", listenAddr)
 

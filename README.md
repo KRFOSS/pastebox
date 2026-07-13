@@ -183,6 +183,12 @@ ADMIN_TOKEN=
    - `ADMIN_TOKEN`을 통해 안전하게 인증(쿠키 기반) 후 접근하며, **선택 삭제** 및 **전체 파기** 기능을 지원합니다.
    - 최초 기동 시 `ADMIN_TOKEN` 설정이 비어있다면 영문 대소문자 및 숫자 조합의 256자 마스터 토큰이 자동으로 생성되어 `config.conf`에 영구 보존됩니다. (최초 생성 시 서버 표준 출력 로그를 통해 토큰 정보를 확인할 수 있습니다.)
 
+10. **Discord OAuth 관리자 로그인 (`/ra/discord`)**:
+   - 먼저 `ADMIN_TOKEN`으로 로그인한 뒤 관리자 페이지의 **Discord 로그인** 메뉴에서 Client ID, Client Secret, Redirect URI를 저장합니다.
+   - Discord Developer Portal에도 `https://<서비스-도메인>/ra/discord/callback` 형식의 Redirect URI를 동일하게 등록해야 합니다.
+   - 설정 저장 후 **Discord 계정 연동**을 완료한 계정 하나만 관리자 로그인이 허용됩니다. 미연동 계정이나 다른 Discord 계정은 OAuth 인증에 성공하더라도 거부됩니다.
+   - OAuth 요청은 일회성 `state` 값으로 검증하며 `identify` 범위만 사용합니다. Discord 액세스 토큰과 리프레시 토큰은 저장하지 않습니다.
+
 ### 프로젝트 구조
 
 | 경로                               | 설명                                                                              |
