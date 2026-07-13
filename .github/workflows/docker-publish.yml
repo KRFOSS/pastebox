@@ -28,7 +28,7 @@ env:
 jobs:
   build-and-push:
     name: 이미지 빌드 및 배포
-    runs-on: keiverse
+    runs-on: superxeon
     permissions:
       contents: read
       packages: write
