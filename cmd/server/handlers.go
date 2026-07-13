@@ -45,8 +45,7 @@ type app struct {
 	expireDays          int
 	maxUploadSize       int64
 	homeBackgroundImage string
-	discordOAuth        discordOAuthConfig
-	discordOAuthStates  map[string]discordOAuthState
+	discordOAuthStore   pastebox.DiscordOAuthStorage
 	discordHTTPClient   *http.Client
 	mu                  sync.RWMutex
 }

@@ -8,8 +8,11 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
+	"sync"
 	"testing"
 	"time"
+
+	pastebox "pastebox/internal"
 )
 
 func TestDiscordLoginRejectsWhenNoAccountIsLinked(t *testing.T) {
@@ -50,7 +53,7 @@ func TestDiscordLoginCallbackAllowsOnlyLinkedUser(t *testing.T) {
 	defer restore()
 
 	state := "validOAuthState1234567890"
-	a.discordOAuthStates[state] = discordOAuthState{Intent: discordOAuthIntentLogin, ExpiresAt: time.Now().Add(time.Minute)}
+	storeDiscordOAuthState(t, a, state, discordOAuthIntentLogin)
 	req := httptest.NewRequest(http.MethodGet, "/ra/discord/callback?code=test-code&state="+state, nil)
 	req.AddCookie(&http.Cookie{Name: discordOAuthStateCookieName, Value: state, Path: "/ra/discord"})
 	rec := httptest.NewRecorder()
@@ -68,6 +71,54 @@ func TestDiscordLoginCallbackAllowsOnlyLinkedUser(t *testing.T) {
 	}
 }
 
+func TestDiscordOAuthSettingsAndStateAreSharedAcrossServers(t *testing.T) {
+	shared := newMemoryDiscordOAuthStore()
+	nodeA := newDiscordOAuthTestAppWithStore(t, discordOAuthConfig{
+		ClientID:       "123456789012345678",
+		ClientSecret:   "secret",
+		RedirectURI:    "https://paste.example.com/ra/discord/callback",
+		LinkedUserID:   "222222222222222222",
+		LinkedUsername: "linked-admin",
+	}, shared)
+	nodeB := newDiscordOAuthTestAppWithStore(t, discordOAuthConfig{}, shared)
+	restore := useDiscordOAuthTestServer(t, `{"id":"222222222222222222","username":"linked-admin","global_name":"Linked Admin","avatar":"avatar-hash"}`)
+	defer restore()
+
+	startReq := httptest.NewRequest(http.MethodGet, "https://paste.example.com/ra/discord/login", nil)
+	startRec := httptest.NewRecorder()
+	nodeA.discordLoginHandler(startRec, startReq)
+	if startRec.Code != http.StatusFound {
+		t.Fatalf("expected node A to start OAuth, got %d: %s", startRec.Code, startRec.Body.String())
+	}
+	authorizeURL, err := url.Parse(startRec.Header().Get("Location"))
+	if err != nil {
+		t.Fatalf("failed to parse OAuth redirect: %v", err)
+	}
+	state := authorizeURL.Query().Get("state")
+	var stateCookie *http.Cookie
+	for _, cookie := range startRec.Result().Cookies() {
+		if cookie.Name == discordOAuthStateCookieName {
+			stateCookie = cookie
+			break
+		}
+	}
+	if state == "" || stateCookie == nil {
+		t.Fatal("expected node A to persist an OAuth state and set its cookie")
+	}
+
+	callbackReq := httptest.NewRequest(http.MethodGet, "/ra/discord/callback?code=test-code&state="+state, nil)
+	callbackReq.AddCookie(stateCookie)
+	callbackRec := httptest.NewRecorder()
+	nodeB.discordCallbackHandler(callbackRec, callbackReq)
+
+	if callbackRec.Code != http.StatusSeeOther || callbackRec.Header().Get("Location") != "/ra" {
+		t.Fatalf("expected node B to finish OAuth using shared DB state, got %d %q: %s", callbackRec.Code, callbackRec.Header().Get("Location"), callbackRec.Body.String())
+	}
+	if !responseHasCookie(callbackRec.Result(), "admin_token", "master-token") {
+		t.Fatal("expected node B to authenticate the shared linked Discord account")
+	}
+}
+
 func TestDiscordLoginCallbackRejectsDifferentUser(t *testing.T) {
 	a := newDiscordOAuthTestApp(t, discordOAuthConfig{
 		ClientID:       "123456789012345678",
@@ -80,7 +131,7 @@ func TestDiscordLoginCallbackRejectsDifferentUser(t *testing.T) {
 	defer restore()
 
 	state := "validOAuthState1234567890"
-	a.discordOAuthStates[state] = discordOAuthState{Intent: discordOAuthIntentLogin, ExpiresAt: time.Now().Add(time.Minute)}
+	storeDiscordOAuthState(t, a, state, discordOAuthIntentLogin)
 	req := httptest.NewRequest(http.MethodGet, "/ra/discord/callback?code=test-code&state="+state, nil)
 	req.AddCookie(&http.Cookie{Name: discordOAuthStateCookieName, Value: state, Path: "/ra/discord"})
 	rec := httptest.NewRecorder()
@@ -105,7 +156,7 @@ func TestDiscordLinkCallbackPersistsSelectedAccount(t *testing.T) {
 	defer restore()
 
 	state := "validOAuthState1234567890"
-	a.discordOAuthStates[state] = discordOAuthState{Intent: discordOAuthIntentLink, ExpiresAt: time.Now().Add(time.Minute)}
+	storeDiscordOAuthState(t, a, state, discordOAuthIntentLink)
 	req := httptest.NewRequest(http.MethodGet, "/ra/discord/callback?code=test-code&state="+state, nil)
 	req.AddCookie(&http.Cookie{Name: discordOAuthStateCookieName, Value: state, Path: "/ra/discord"})
 	req.AddCookie(&http.Cookie{Name: "admin_token", Value: "master-token", Path: "/ra"})
@@ -116,29 +167,19 @@ func TestDiscordLinkCallbackPersistsSelectedAccount(t *testing.T) {
 	if rec.Code != http.StatusSeeOther || rec.Header().Get("Location") != "/ra/discord?status=linked" {
 		t.Fatalf("expected successful link redirect, got %d %q", rec.Code, rec.Header().Get("Location"))
 	}
-	if got := a.getDiscordOAuthConfig().LinkedUserID; got != "222222222222222222" {
+	cfg, err := a.getDiscordOAuthConfig()
+	if err != nil {
+		t.Fatalf("failed to load persisted OAuth settings: %v", err)
+	}
+	if got := cfg.LinkedUserID; got != "222222222222222222" {
 		t.Fatalf("expected linked user ID to update, got %q", got)
-	}
-	data, err := os.ReadFile(a.configPath)
-	if err != nil {
-		t.Fatalf("failed to read persisted config: %v", err)
-	}
-	if !strings.Contains(string(data), "DISCORD_OAUTH_LINKED_USER_ID=222222222222222222") {
-		t.Fatalf("linked user was not persisted: %s", data)
-	}
-	info, err := os.Stat(a.configPath)
-	if err != nil {
-		t.Fatalf("failed to stat persisted config: %v", err)
-	}
-	if perm := info.Mode().Perm(); perm != 0600 {
-		t.Fatalf("expected config permissions 0600, got %o", perm)
 	}
 }
 
 func TestDiscordCallbackRejectsMismatchedStateCookie(t *testing.T) {
 	a := newDiscordOAuthTestApp(t, discordOAuthConfig{})
 	state := "validOAuthState1234567890"
-	a.discordOAuthStates[state] = discordOAuthState{Intent: discordOAuthIntentLogin, ExpiresAt: time.Now().Add(time.Minute)}
+	storeDiscordOAuthState(t, a, state, discordOAuthIntentLogin)
 	req := httptest.NewRequest(http.MethodGet, "/ra/discord/callback?code=test-code&state="+state, nil)
 	req.AddCookie(&http.Cookie{Name: discordOAuthStateCookieName, Value: "different-state", Path: "/ra/discord"})
 	rec := httptest.NewRecorder()
@@ -148,7 +189,7 @@ func TestDiscordCallbackRejectsMismatchedStateCookie(t *testing.T) {
 	if rec.Code != http.StatusBadRequest {
 		t.Fatalf("expected a mismatched state cookie to be rejected, got %d", rec.Code)
 	}
-	if _, ok := a.discordOAuthStates[state]; !ok {
+	if !a.discordOAuthStore.(*memoryDiscordOAuthStore).hasState(state) {
 		t.Fatal("a mismatched state cookie must not consume the server-side OAuth state")
 	}
 }
@@ -160,7 +201,7 @@ func TestDiscordLinkCallbackRequiresActiveAdminSession(t *testing.T) {
 		RedirectURI:  "https://paste.example.com/ra/discord/callback",
 	})
 	state := "validOAuthState1234567890"
-	a.discordOAuthStates[state] = discordOAuthState{Intent: discordOAuthIntentLink, ExpiresAt: time.Now().Add(time.Minute)}
+	storeDiscordOAuthState(t, a, state, discordOAuthIntentLink)
 	req := httptest.NewRequest(http.MethodGet, "/ra/discord/callback?code=test-code&state="+state, nil)
 	req.AddCookie(&http.Cookie{Name: discordOAuthStateCookieName, Value: state, Path: "/ra/discord"})
 	rec := httptest.NewRecorder()
@@ -170,7 +211,11 @@ func TestDiscordLinkCallbackRequiresActiveAdminSession(t *testing.T) {
 	if rec.Code != http.StatusUnauthorized {
 		t.Fatalf("expected link callback without an admin session to be rejected with 401, got %d", rec.Code)
 	}
-	if a.getDiscordOAuthConfig().linked() {
+	cfg, err := a.getDiscordOAuthConfig()
+	if err != nil {
+		t.Fatalf("failed to load OAuth settings: %v", err)
+	}
+	if cfg.linked() {
 		t.Fatal("link callback without an admin session must not update the linked account")
 	}
 }
@@ -316,7 +361,10 @@ func TestAdminDiscordSettingsClientIDChangeRequiresRelink(t *testing.T) {
 	if rec.Code != http.StatusSeeOther || rec.Header().Get("Location") != "/ra/discord?status=saved-unlinked" {
 		t.Fatalf("expected settings update to require relinking, got %d %q", rec.Code, rec.Header().Get("Location"))
 	}
-	cfg := a.getDiscordOAuthConfig()
+	cfg, err := a.getDiscordOAuthConfig()
+	if err != nil {
+		t.Fatalf("failed to load OAuth settings: %v", err)
+	}
 	if cfg.ClientID != "987654321098765432" || cfg.ClientSecret != "new-secret" {
 		t.Fatalf("OAuth settings were not updated: %#v", cfg)
 	}
@@ -351,14 +399,90 @@ func TestValidateDiscordRedirectURI(t *testing.T) {
 
 func newDiscordOAuthTestApp(t *testing.T, cfg discordOAuthConfig) *app {
 	t.Helper()
-	return &app{
-		adminLogin:         template.Must(template.New("login").Parse(`{{ .Error }}`)),
-		adminToken:         "master-token",
-		configPath:         filepath.Join(t.TempDir(), "config.conf"),
-		discordOAuth:       cfg,
-		discordOAuthStates: make(map[string]discordOAuthState),
-		discordHTTPClient:  &http.Client{Timeout: 2 * time.Second},
+	return newDiscordOAuthTestAppWithStore(t, cfg, newMemoryDiscordOAuthStore())
+}
+
+func newDiscordOAuthTestAppWithStore(t *testing.T, cfg discordOAuthConfig, store *memoryDiscordOAuthStore) *app {
+	t.Helper()
+	if cfg != (discordOAuthConfig{}) {
+		if err := store.SaveDiscordOAuthSettings(cfg.storageSettings()); err != nil {
+			t.Fatalf("failed to seed OAuth settings: %v", err)
+		}
 	}
+	return &app{
+		adminLogin:        template.Must(template.New("login").Parse(`{{ .Error }}`)),
+		adminToken:        "master-token",
+		configPath:        filepath.Join(t.TempDir(), "config.conf"),
+		discordOAuthStore: store,
+		discordHTTPClient: &http.Client{Timeout: 2 * time.Second},
+	}
+}
+
+func storeDiscordOAuthState(t *testing.T, a *app, state, intent string) {
+	t.Helper()
+	if err := a.discordOAuthStore.CreateDiscordOAuthState(pastebox.DiscordOAuthPendingState{
+		State:     state,
+		Intent:    intent,
+		ExpiresAt: time.Now().Add(time.Minute),
+	}); err != nil {
+		t.Fatalf("failed to store OAuth state: %v", err)
+	}
+}
+
+type memoryDiscordOAuthStore struct {
+	mu          sync.Mutex
+	settings    pastebox.DiscordOAuthSettings
+	hasSettings bool
+	states      map[string]pastebox.DiscordOAuthPendingState
+}
+
+func newMemoryDiscordOAuthStore() *memoryDiscordOAuthStore {
+	return &memoryDiscordOAuthStore{states: make(map[string]pastebox.DiscordOAuthPendingState)}
+}
+
+func (s *memoryDiscordOAuthStore) LoadDiscordOAuthSettings() (pastebox.DiscordOAuthSettings, bool, error) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	return s.settings, s.hasSettings, nil
+}
+
+func (s *memoryDiscordOAuthStore) SaveDiscordOAuthSettings(settings pastebox.DiscordOAuthSettings) error {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	s.settings = settings
+	s.hasSettings = true
+	return nil
+}
+
+func (s *memoryDiscordOAuthStore) CreateDiscordOAuthState(state pastebox.DiscordOAuthPendingState) error {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	if _, exists := s.states[state.State]; exists {
+		return os.ErrExist
+	}
+	s.states[state.State] = state
+	return nil
+}
+
+func (s *memoryDiscordOAuthStore) ConsumeDiscordOAuthState(state string, now time.Time) (pastebox.DiscordOAuthPendingState, bool, error) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	pending, exists := s.states[state]
+	if !exists {
+		return pastebox.DiscordOAuthPendingState{}, false, nil
+	}
+	delete(s.states, state)
+	if !pending.ExpiresAt.After(now) {
+		return pastebox.DiscordOAuthPendingState{}, false, nil
+	}
+	return pending, true, nil
+}
+
+func (s *memoryDiscordOAuthStore) hasState(state string) bool {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	_, exists := s.states[state]
+	return exists
 }
 
 func useDiscordOAuthTestServer(t *testing.T, userJSON string) func() {
