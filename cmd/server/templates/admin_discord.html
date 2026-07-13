@@ -1,0 +1,508 @@
+<!doctype html>
+<html lang="ko">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="color-scheme" content="dark">
+  <title>Discord 로그인 설정 - Pastebox</title>
+  <style>
+    :root {
+      color-scheme: dark;
+      --bg: #080b10;
+      --surface: rgba(15, 20, 29, 0.88);
+      --surface-soft: rgba(255, 255, 255, 0.035);
+      --border: rgba(148, 163, 184, 0.15);
+      --border-strong: rgba(148, 163, 184, 0.26);
+      --text: #f3f6fa;
+      --text-soft: #a6b0bf;
+      --text-muted: #6f7b8d;
+      --accent: #38bdf8;
+      --success: #34d399;
+      --success-soft: rgba(52, 211, 153, 0.09);
+      --danger: #fb7185;
+      --danger-soft: rgba(251, 113, 133, 0.09);
+      --discord: #5865f2;
+      --radius: 14px;
+      --radius-lg: 20px;
+      --font-sans: Inter, Pretendard, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      --font-mono: "SFMono-Regular", Consolas, "Liberation Mono", monospace;
+    }
+
+    * { box-sizing: border-box; }
+
+    html, body {
+      min-width: 320px;
+      min-height: 100%;
+      margin: 0;
+    }
+
+    body {
+      min-height: 100vh;
+      color: var(--text);
+      background:
+        radial-gradient(circle at 10% 0%, rgba(14, 165, 233, 0.11), transparent 28rem),
+        radial-gradient(circle at 92% 90%, rgba(88, 101, 242, 0.09), transparent 34rem),
+        var(--bg);
+      font-family: var(--font-sans);
+      -webkit-font-smoothing: antialiased;
+    }
+
+    button, input { font: inherit; }
+    button, a { -webkit-tap-highlight-color: transparent; touch-action: manipulation; }
+    a { color: inherit; text-decoration: none; }
+    svg { width: 18px; height: 18px; stroke: currentColor; }
+    :focus-visible { outline: 2px solid var(--accent); outline-offset: 3px; }
+
+    .topbar {
+      position: sticky;
+      z-index: 20;
+      top: 0;
+      border-bottom: 1px solid var(--border);
+      background: rgba(8, 11, 16, 0.82);
+      backdrop-filter: blur(18px);
+    }
+
+    .topbar-inner {
+      width: min(1180px, calc(100% - 40px));
+      height: 70px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 20px;
+      margin: 0 auto;
+    }
+
+    .brand, .header-actions, .button, .status, .section-heading, .account-profile {
+      display: flex;
+      align-items: center;
+    }
+
+    .brand { gap: 11px; min-width: 0; }
+
+    .brand-mark {
+      width: 36px;
+      height: 36px;
+      display: grid;
+      place-items: center;
+      flex: 0 0 auto;
+      color: #061018;
+      border-radius: 11px;
+      background: linear-gradient(145deg, #7dd3fc, #0ea5e9);
+      box-shadow: 0 9px 24px rgba(14, 165, 233, 0.2);
+    }
+
+    .brand-title { display: block; font-size: 14px; font-weight: 780; }
+    .brand-subtitle { display: block; margin-top: 2px; color: var(--text-muted); font-size: 10px; font-weight: 650; text-transform: uppercase; letter-spacing: .06em; }
+    .header-actions { gap: 8px; }
+
+    .button {
+      min-height: 38px;
+      justify-content: center;
+      gap: 8px;
+      padding: 0 13px;
+      color: var(--text-soft);
+      border: 1px solid var(--border);
+      border-radius: 11px;
+      background: var(--surface-soft);
+      font-size: 12px;
+      font-weight: 720;
+      white-space: nowrap;
+      cursor: pointer;
+      transition: color 160ms ease, border-color 160ms ease, background 160ms ease, transform 120ms ease;
+    }
+
+    .button:hover { color: var(--text); border-color: var(--border-strong); background: rgba(255,255,255,.06); }
+    .button:active { transform: translateY(1px); }
+
+    .button-primary {
+      color: #071018;
+      border-color: rgba(125, 211, 252, .24);
+      background: linear-gradient(180deg, #7dd3fc, #38bdf8);
+    }
+
+    .button-discord {
+      color: #fff;
+      border-color: rgba(255,255,255,.1);
+      background: var(--discord);
+      box-shadow: 0 12px 26px rgba(88, 101, 242, .16);
+    }
+
+    .button-discord:hover { color: #fff; background: #6875f5; }
+    .button-danger { color: #fecdd3; border-color: rgba(251,113,133,.2); background: var(--danger-soft); }
+    .button[aria-disabled="true"] { opacity: .42; pointer-events: none; }
+
+    .main {
+      width: min(1180px, calc(100% - 40px));
+      margin: 0 auto;
+      padding: 48px 0 70px;
+    }
+
+    .page-heading {
+      display: flex;
+      align-items: flex-end;
+      justify-content: space-between;
+      gap: 24px;
+      margin-bottom: 28px;
+    }
+
+    .eyebrow { margin: 0 0 9px; color: #818cf8; font-size: 10px; font-weight: 800; letter-spacing: .13em; text-transform: uppercase; }
+    h1 { margin: 0; font-size: clamp(28px, 4vw, 40px); font-weight: 780; letter-spacing: -.045em; }
+    .page-description { max-width: 680px; margin: 12px 0 0; color: var(--text-soft); font-size: 13px; line-height: 1.65; }
+
+    .notice {
+      margin-bottom: 18px;
+      padding: 13px 15px;
+      color: #a7f3d0;
+      border: 1px solid rgba(52, 211, 153, .18);
+      border-radius: 13px;
+      background: var(--success-soft);
+      font-size: 12px;
+      line-height: 1.55;
+    }
+
+    .notice-error { color: #fecdd3; border-color: rgba(251,113,133,.18); background: var(--danger-soft); }
+
+    .setup-grid {
+      display: grid;
+      grid-template-columns: minmax(0, 1.25fr) minmax(320px, .75fr);
+      gap: 18px;
+      align-items: start;
+    }
+
+    .surface {
+      overflow: hidden;
+      border: 1px solid var(--border);
+      border-radius: var(--radius-lg);
+      background: var(--surface);
+      box-shadow: 0 22px 65px rgba(0, 0, 0, .24);
+      backdrop-filter: blur(18px);
+    }
+
+    .surface-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 18px;
+      padding: 21px 23px;
+      border-bottom: 1px solid var(--border);
+    }
+
+    .section-heading { gap: 12px; }
+
+    .section-icon {
+      width: 38px;
+      height: 38px;
+      display: grid;
+      place-items: center;
+      flex: 0 0 auto;
+      color: #a5b4fc;
+      border: 1px solid rgba(129, 140, 248, .17);
+      border-radius: 12px;
+      background: rgba(88, 101, 242, .1);
+    }
+
+    .section-title { margin: 0; font-size: 15px; font-weight: 770; letter-spacing: -.02em; }
+    .section-description { margin: 5px 0 0; color: var(--text-muted); font-size: 11px; line-height: 1.5; }
+
+    .status {
+      gap: 7px;
+      padding: 7px 10px;
+      color: var(--text-muted);
+      border: 1px solid var(--border);
+      border-radius: 999px;
+      background: rgba(255,255,255,.025);
+      font-size: 10px;
+      font-weight: 750;
+    }
+
+    .status-dot { width: 6px; height: 6px; border-radius: 50%; background: var(--text-muted); }
+    .status-ready { color: #a7f3d0; border-color: rgba(52,211,153,.18); background: var(--success-soft); }
+    .status-ready .status-dot { background: var(--success); box-shadow: 0 0 0 4px rgba(52,211,153,.09); }
+
+    .surface-body { padding: 23px; }
+
+    .field-group + .field-group { margin-top: 18px; }
+    .field-label { display: block; margin-bottom: 8px; color: #d8dee8; font-size: 11px; font-weight: 750; }
+    .field-help { margin: 7px 0 0; color: var(--text-muted); font-size: 10px; line-height: 1.55; }
+    .field-help code { color: #94a3b8; font-family: var(--font-mono); }
+
+    .field-wrap { position: relative; }
+
+    .field {
+      width: 100%;
+      height: 45px;
+      padding: 0 13px;
+      color: var(--text);
+      border: 1px solid var(--border);
+      border-radius: 11px;
+      outline: none;
+      background: rgba(2, 5, 10, .5);
+      font-size: 12px;
+      transition: border-color 160ms ease, box-shadow 160ms ease, background 160ms ease;
+    }
+
+    .field-mono { font-family: var(--font-mono); }
+    .field-secret { padding-right: 48px; }
+    .field::placeholder { color: #495363; font-family: var(--font-sans); }
+    .field:focus { border-color: rgba(56,189,248,.56); background: rgba(2,5,10,.72); box-shadow: 0 0 0 4px rgba(56,189,248,.08); }
+
+    .secret-toggle {
+      position: absolute;
+      top: 50%;
+      right: 7px;
+      width: 33px;
+      height: 33px;
+      display: grid;
+      place-items: center;
+      color: var(--text-muted);
+      border: 0;
+      border-radius: 9px;
+      background: transparent;
+      cursor: pointer;
+      transform: translateY(-50%);
+    }
+
+    .secret-toggle:hover { color: var(--text-soft); background: rgba(255,255,255,.05); }
+    .secret-toggle svg { width: 16px; height: 16px; }
+
+    .form-actions {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 14px;
+      margin-top: 24px;
+      padding-top: 20px;
+      border-top: 1px solid var(--border);
+    }
+
+    .scope-note { color: var(--text-muted); font-size: 10px; line-height: 1.5; }
+    .scope-note strong { color: var(--text-soft); font-family: var(--font-mono); }
+
+    .account-state {
+      min-height: 265px;
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
+      text-align: center;
+    }
+
+    .discord-avatar {
+      width: 68px;
+      height: 68px;
+      display: grid;
+      place-items: center;
+      overflow: hidden;
+      margin: 0 auto 17px;
+      color: #fff;
+      border: 1px solid rgba(255,255,255,.13);
+      border-radius: 22px;
+      background: var(--discord);
+      box-shadow: 0 14px 32px rgba(88,101,242,.2);
+    }
+
+    .discord-avatar img { width: 100%; height: 100%; object-fit: cover; }
+    .discord-avatar svg { width: 33px; height: 33px; fill: currentColor; stroke: none; }
+    .account-title { margin: 0; font-size: 17px; font-weight: 770; letter-spacing: -.025em; }
+    .account-subtitle { margin: 7px 0 0; color: var(--text-muted); font-family: var(--font-mono); font-size: 10px; }
+    .account-description { max-width: 330px; margin: 16px auto 21px; color: var(--text-soft); font-size: 11px; line-height: 1.65; }
+    .account-actions { display: flex; justify-content: center; flex-wrap: wrap; gap: 8px; }
+
+    .security-panel { margin-top: 18px; padding: 18px 20px; border: 1px solid var(--border); border-radius: 16px; background: rgba(255,255,255,.02); }
+    .security-title { margin: 0 0 8px; font-size: 12px; font-weight: 760; }
+    .security-list { margin: 0; padding-left: 17px; color: var(--text-muted); font-size: 10px; line-height: 1.75; }
+
+    @media (max-width: 900px) {
+      .setup-grid { grid-template-columns: 1fr; }
+      .account-state { min-height: 220px; }
+    }
+
+    @media (max-width: 620px) {
+      .topbar-inner, .main { width: min(100% - 24px, 1180px); }
+      .topbar-inner { height: 64px; }
+      .brand-subtitle, .header-actions .button span { display: none; }
+      .header-actions .button { width: 38px; padding: 0; }
+      .main { padding: 30px 0 48px; }
+      .page-heading { align-items: flex-start; flex-direction: column; margin-bottom: 21px; }
+      .page-heading > .button { display: none; }
+      .surface-header { align-items: flex-start; padding: 18px; }
+      .surface-body { padding: 18px; }
+      .status { padding: 7px; }
+      .status span:last-child { display: none; }
+      .form-actions { align-items: stretch; flex-direction: column; }
+      .form-actions .button { width: 100%; }
+    }
+
+    @media (prefers-reduced-motion: reduce) {
+      *, *::before, *::after { transition-duration: .01ms !important; }
+    }
+  </style>
+</head>
+<body>
+  <header class="topbar">
+    <div class="topbar-inner">
+      <a class="brand" href="/ra" aria-label="Pastebox 관리자 홈">
+        <span class="brand-mark" aria-hidden="true">
+          <svg viewBox="0 0 24 24" fill="none" stroke-width="2">
+            <path d="M9 5h6M9 9h6M9 13h4" stroke-linecap="round"/>
+            <path d="M7 3.5h10a2 2 0 0 1 2 2v13a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2v-13a2 2 0 0 1 2-2Z"/>
+          </svg>
+        </span>
+        <span>
+          <span class="brand-title">Pastebox</span>
+          <span class="brand-subtitle">Discord authentication</span>
+        </span>
+      </a>
+      <div class="header-actions">
+        <a class="button" href="/ra">
+          <svg viewBox="0 0 24 24" fill="none" stroke-width="1.8" aria-hidden="true"><path d="m15 18-6-6 6-6" stroke-linecap="round" stroke-linejoin="round"/></svg>
+          <span>대시보드</span>
+        </a>
+        <a class="button" href="/ra/logout">
+          <svg viewBox="0 0 24 24" fill="none" stroke-width="1.8" aria-hidden="true"><path d="M10 5H6a2 2 0 0 0-2 2v10a2 2 0 0 0 2 2h4M14 8l4 4-4 4M18 12H9" stroke-linecap="round" stroke-linejoin="round"/></svg>
+          <span>로그아웃</span>
+        </a>
+      </div>
+    </div>
+  </header>
+
+  <main class="main">
+    <section class="page-heading">
+      <div>
+        <p class="eyebrow">Authentication</p>
+        <h1>Discord 로그인 설정</h1>
+        <p class="page-description">Discord 애플리케이션 정보를 저장한 뒤, 관리자 토큰으로 로그인한 현재 세션에서 허용할 Discord 계정을 직접 연동합니다.</p>
+      </div>
+      <a class="button" href="https://discord.com/developers/applications" target="_blank" rel="noopener noreferrer">
+        Discord Developer Portal
+        <svg viewBox="0 0 24 24" fill="none" stroke-width="1.8" aria-hidden="true"><path d="M14 5h5v5M10 14 19 5" stroke-linecap="round" stroke-linejoin="round"/><path d="M19 13v5a1 1 0 0 1-1 1H6a1 1 0 0 1-1-1V6a1 1 0 0 1 1-1h5" stroke-linecap="round"/></svg>
+      </a>
+    </section>
+
+    {{ if .Notice }}
+    <div class="notice {{ if .NoticeError }}notice-error{{ end }}" role="status">{{ .Notice }}</div>
+    {{ end }}
+
+    <div class="setup-grid">
+      <section class="surface" aria-labelledby="oauth-config-title">
+        <div class="surface-header">
+          <div class="section-heading">
+            <span class="section-icon" aria-hidden="true">
+              <svg viewBox="0 0 24 24" fill="none" stroke-width="1.8"><path d="M8 10V7a4 4 0 0 1 8 0v3M6 10h12a2 2 0 0 1 2 2v7a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2v-7a2 2 0 0 1 2-2Z" stroke-linecap="round"/><path d="M12 14v3" stroke-linecap="round"/></svg>
+            </span>
+            <div>
+              <h2 class="section-title" id="oauth-config-title">OAuth 애플리케이션</h2>
+              <p class="section-description">Discord Developer Portal에서 발급받은 값을 입력합니다.</p>
+            </div>
+          </div>
+          <span class="status {{ if .OAuthConfigured }}status-ready{{ end }}">
+            <span class="status-dot"></span>
+            <span>{{ if .OAuthConfigured }}설정 완료{{ else }}설정 필요{{ end }}</span>
+          </span>
+        </div>
+
+        <form class="surface-body" action="/ra/discord/settings" method="POST">
+          <input type="hidden" name="csrf_token" value="{{ .CSRFToken }}">
+
+          <div class="field-group">
+            <label class="field-label" for="discord-client-id">Client ID</label>
+            <input class="field field-mono" id="discord-client-id" type="text" name="client_id" value="{{ .ClientID }}" inputmode="numeric" pattern="[0-9]{17,20}" maxlength="20" autocomplete="off" placeholder="123456789012345678" required>
+            <p class="field-help">Discord 애플리케이션의 General Information에 표시되는 Application ID입니다.</p>
+          </div>
+
+          <div class="field-group">
+            <label class="field-label" for="discord-client-secret">Client Secret</label>
+            <div class="field-wrap">
+              <input class="field field-mono field-secret" id="discord-client-secret" type="password" name="client_secret" maxlength="512" autocomplete="new-password" placeholder="{{ if .ClientSecretConfigured }}비워두면 현재 시크릿을 유지합니다{{ else }}Discord Client Secret{{ end }}" {{ if not .ClientSecretConfigured }}required{{ end }}>
+              <button class="secret-toggle" id="secret-toggle" type="button" aria-label="Client Secret 표시" aria-pressed="false">
+                <svg viewBox="0 0 24 24" fill="none" stroke-width="1.8" aria-hidden="true"><path d="M2.5 12s3.5-6 9.5-6 9.5 6 9.5 6-3.5 6-9.5 6S2.5 12 2.5 12Z"/><circle cx="12" cy="12" r="2.5"/></svg>
+              </button>
+            </div>
+            <p class="field-help">시크릿 값은 화면에 다시 표시하지 않으며 서버의 <code>config.conf</code>에 권한 0600으로 저장합니다.</p>
+          </div>
+
+          <div class="field-group">
+            <label class="field-label" for="discord-redirect-uri">Redirect URI</label>
+            <input class="field field-mono" id="discord-redirect-uri" type="url" name="redirect_uri" value="{{ .RedirectURI }}" autocomplete="url" placeholder="https://paste.example.com/ra/discord/callback" required>
+            <p class="field-help">Developer Portal의 OAuth2 Redirects에도 완전히 같은 주소를 등록해야 합니다. 경로는 반드시 <code>/ra/discord/callback</code>이어야 합니다.</p>
+          </div>
+
+          <div class="form-actions">
+            <span class="scope-note">요청 권한: <strong>identify</strong> · 이메일과 서버 목록은 요청하지 않습니다.</span>
+            <button class="button button-primary" type="submit">OAuth 설정 저장</button>
+          </div>
+        </form>
+      </section>
+
+      <section class="surface" aria-labelledby="linked-account-title">
+        <div class="surface-header">
+          <div class="section-heading">
+            <span class="section-icon" aria-hidden="true">
+              <svg viewBox="0 0 24 24" fill="none" stroke-width="1.8"><circle cx="12" cy="8" r="4"/><path d="M4.5 20a7.5 7.5 0 0 1 15 0" stroke-linecap="round"/></svg>
+            </span>
+            <div>
+              <h2 class="section-title" id="linked-account-title">허용된 관리자 계정</h2>
+              <p class="section-description">연동된 한 계정만 Discord 로그인이 허용됩니다.</p>
+            </div>
+          </div>
+          <span class="status {{ if .DiscordLinked }}status-ready{{ end }}">
+            <span class="status-dot"></span>
+            <span>{{ if .DiscordLinked }}연동됨{{ else }}미연동{{ end }}</span>
+          </span>
+        </div>
+
+        <div class="surface-body account-state">
+          <div class="discord-avatar" aria-hidden="true">
+            {{ if .LinkedAvatarURL }}
+            <img src="{{ .LinkedAvatarURL }}" alt="">
+            {{ else }}
+            <svg viewBox="0 0 24 24"><path d="M19.5 5.3A17.3 17.3 0 0 0 15.4 4l-.5 1.1a15.7 15.7 0 0 0-5.8 0L8.6 4a17.2 17.2 0 0 0-4.1 1.3C1.9 9.2 1.2 13 1.5 16.8a16.6 16.6 0 0 0 5 2.5l1.2-1.7a10.5 10.5 0 0 1-1.9-.9l.5-.4a12.4 12.4 0 0 0 11.4 0l.5.4c-.6.4-1.2.7-1.9.9l1.2 1.7a16.6 16.6 0 0 0 5-2.5c.4-4.4-.7-8.2-3-11.5ZM8.5 14.5c-1 0-1.8-.9-1.8-2s.8-2 1.8-2 1.8.9 1.8 2-.8 2-1.8 2Zm7 0c-1 0-1.8-.9-1.8-2s.8-2 1.8-2 1.8.9 1.8 2-.8 2-1.8 2Z"/></svg>
+            {{ end }}
+          </div>
+
+          {{ if .DiscordLinked }}
+          <h3 class="account-title">{{ .LinkedDisplayName }}</h3>
+          <p class="account-subtitle">@{{ .LinkedUsername }} · {{ .LinkedUserID }}</p>
+          <p class="account-description">이 Discord 사용자 ID와 일치하는 계정만 관리자 세션을 만들 수 있습니다. 다른 계정은 OAuth가 성공해도 거부됩니다.</p>
+          <div class="account-actions">
+            <a class="button button-discord" href="/ra/discord/link">다른 계정으로 다시 연동</a>
+            <form action="/ra/discord/unlink" method="POST" onsubmit="return confirm('Discord 계정 연동을 해제할까요?');">
+              <input type="hidden" name="csrf_token" value="{{ .CSRFToken }}">
+              <button class="button button-danger" type="submit">연동 해제</button>
+            </form>
+          </div>
+          {{ else }}
+          <h3 class="account-title">연동된 계정이 없습니다</h3>
+          <p class="account-description">먼저 OAuth 애플리케이션 값을 저장한 다음, 관리자 로그인을 허용할 Discord 계정을 연동하세요. 미연동 상태에서는 모든 Discord 로그인이 거부됩니다.</p>
+          <div class="account-actions">
+            <a class="button button-discord" href="/ra/discord/link" {{ if not .OAuthConfigured }}aria-disabled="true" title="먼저 OAuth 설정을 저장해 주세요"{{ end }}>Discord 계정 연동</a>
+          </div>
+          {{ end }}
+        </div>
+      </section>
+    </div>
+
+    <section class="security-panel" aria-labelledby="security-title">
+      <h2 class="security-title" id="security-title">인증 정책</h2>
+      <ul class="security-list">
+        <li>일반 Discord 로그인에서는 계정을 자동 등록하지 않습니다.</li>
+        <li>OAuth 요청은 10분 동안만 유효한 일회성 state 값으로 검증합니다.</li>
+        <li>Discord 액세스 토큰과 리프레시 토큰은 저장하지 않고 사용자 ID 확인에만 사용합니다.</li>
+        <li>Discord 로그인을 해제하거나 다른 Client ID로 변경하면 다시 연동하기 전까지 로그인이 차단됩니다.</li>
+      </ul>
+    </section>
+  </main>
+
+  <script>
+    const secretInput = document.getElementById('discord-client-secret');
+    const secretToggle = document.getElementById('secret-toggle');
+
+    secretToggle.addEventListener('click', () => {
+      const willShow = secretInput.type === 'password';
+      secretInput.type = willShow ? 'text' : 'password';
+      secretToggle.setAttribute('aria-pressed', String(willShow));
+      secretToggle.setAttribute('aria-label', willShow ? 'Client Secret 숨기기' : 'Client Secret 표시');
+      secretInput.focus();
+    });
+  </script>
+</body>
+</html>

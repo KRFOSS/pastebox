@@ -2,10 +2,8 @@ package main
 
 import (
 	"crypto/subtle"
-	"fmt"
 	"log"
 	"net/http"
-	"os"
 	"strconv"
 	"strings"
 	"time"
@@ -26,7 +24,7 @@ func (a *app) isAdminAuthenticated(r *http.Request) bool {
 }
 
 // setCSRFCookie는 CSRF 토큰을 생성하여 쿠키에 설정하고 토큰 값을 반환합니다.
-func (a *app) setCSRFCookie(w http.ResponseWriter) string {
+func (a *app) setCSRFCookie(w http.ResponseWriter, r *http.Request) string {
 	token, err := pastebox.RandomString(pastebox.AlphanumericAlphabet, 32)
 	if err != nil {
 		return ""
@@ -36,7 +34,7 @@ func (a *app) setCSRFCookie(w http.ResponseWriter) string {
 		Value:    token,
 		Path:     "/ra",
 		HttpOnly: false,
-		Secure:   true,
+		Secure:   isHTTPSRequest(r),
 		SameSite: http.SameSiteStrictMode,
 		MaxAge:   3600,
 	})
@@ -63,10 +61,7 @@ func (a *app) adminHandler(w http.ResponseWriter, r *http.Request) {
 	}
 
 	if !a.isAdminAuthenticated(r) {
-		w.Header().Set("Content-Type", "text/html; charset=utf-8")
-		_ = a.adminLogin.Execute(w, map[string]any{
-			"Error": "",
-		})
+		a.renderAdminLogin(w, http.StatusOK, "")
 		return
 	}
 
@@ -123,11 +118,12 @@ func (a *app) adminHandler(w http.ResponseWriter, r *http.Request) {
 	}
 
 	w.Header().Set("Content-Type", "text/html; charset=utf-8")
-	csrfToken := a.setCSRFCookie(w)
+	csrfToken := a.setCSRFCookie(w, r)
 	_ = a.adminDashboard.Execute(w, map[string]any{
 		"Pastes":         pastes,
 		"StorageMode":    a.getStorageModeString(),
 		"CurrentLimitMB": a.getMaxUploadSize() / (1024 * 1024),
+		"ExpireDays":     a.expireDays,
 		"CSRFToken":      csrfToken,
 		"TotalCount":     totalCount,
 		"TotalPages":     totalPages,
@@ -184,26 +180,17 @@ func (a *app) adminUpdateLimitHandler(w http.ResponseWriter, r *http.Request) {
 		newMaxMB = 1
 	}
 
+	if err := persistConfigValues(a.configFilePath(), map[string]string{
+		"MAX_UPLOAD_SIZE_MB": strconv.FormatInt(newMaxMB, 10),
+	}); err != nil {
+		log.Printf("최대 업로드 용량 설정 저장 실패: %v", err)
+		http.Error(w, "설정 파일을 저장하지 못했습니다.", http.StatusInternalServerError)
+		return
+	}
+
 	a.mu.Lock()
 	a.maxUploadSize = newMaxBytes
 	a.mu.Unlock()
-
-	cfgData, err := os.ReadFile("config.conf")
-	if err == nil {
-		lines := strings.Split(string(cfgData), "\n")
-		found := false
-		for i, line := range lines {
-			if strings.HasPrefix(strings.TrimSpace(strings.ToUpper(line)), "MAX_UPLOAD_SIZE_MB=") {
-				lines[i] = fmt.Sprintf("MAX_UPLOAD_SIZE_MB=%d", newMaxMB)
-				found = true
-				break
-			}
-		}
-		if !found {
-			lines = append(lines, fmt.Sprintf("MAX_UPLOAD_SIZE_MB=%d", newMaxMB))
-		}
-		_ = os.WriteFile("config.conf", []byte(strings.Join(lines, "\n")), 0644)
-	}
 
 	http.Redirect(w, r, "/ra", http.StatusSeeOther)
 }
@@ -216,23 +203,11 @@ func (a *app) adminLoginHandler(w http.ResponseWriter, r *http.Request) {
 
 	token := strings.TrimSpace(r.FormValue("token"))
 	if a.adminToken == "" || subtle.ConstantTimeCompare([]byte(token), []byte(a.adminToken)) != 1 {
-		w.Header().Set("Content-Type", "text/html; charset=utf-8")
-		w.WriteHeader(http.StatusUnauthorized)
-		_ = a.adminLogin.Execute(w, map[string]any{
-			"Error": "입력하신 토큰이 일치하지 않거나 토큰 정보가 비어있습니다.",
-		})
+		a.renderAdminLogin(w, http.StatusUnauthorized, "입력하신 토큰이 일치하지 않거나 토큰 정보가 비어있습니다.")
 		return
 	}
 
-	http.SetCookie(w, &http.Cookie{
-		Name:     "admin_token",
-		Value:    token,
-		Path:     "/ra",
-		HttpOnly: true,
-		Secure:   true,
-		SameSite: http.SameSiteStrictMode,
-		MaxAge:   86400,
-	})
+	a.setAdminSessionCookie(w, r)
 
 	http.Redirect(w, r, "/ra", http.StatusSeeOther)
 }
@@ -329,28 +304,17 @@ func (a *app) adminUpdateHomeBgHandler(w http.ResponseWriter, r *http.Request) {
 
 	bgUrl := r.FormValue("bg_url")
 
+	if err := persistConfigValues(a.configFilePath(), map[string]string{
+		"HOME_BACKGROUND_IMAGE_URL": bgUrl,
+	}); err != nil {
+		log.Printf("홈 배경 이미지 설정 저장 실패: %v", err)
+		http.Error(w, "설정 파일을 저장하지 못했습니다.", http.StatusInternalServerError)
+		return
+	}
+
 	a.mu.Lock()
 	a.homeBackgroundImage = bgUrl
 	a.mu.Unlock()
-
-	cfgData, err := os.ReadFile("config.conf")
-	if err == nil {
-		lines := strings.Split(string(cfgData), "\n")
-		found := false
-		for i, line := range lines {
-			if strings.HasPrefix(strings.TrimSpace(strings.ToUpper(line)), "HOME_BACKGROUND_IMAGE_URL=") {
-				lines[i] = fmt.Sprintf("HOME_BACKGROUND_IMAGE_URL=%s", bgUrl)
-				found = true
-				break
-			}
-		}
-		if !found {
-			lines = append(lines, fmt.Sprintf("HOME_BACKGROUND_IMAGE_URL=%s", bgUrl))
-		}
-		_ = os.WriteFile("config.conf", []byte(strings.Join(lines, "\n")), 0600)
-	} else {
-		_ = os.WriteFile("config.conf", []byte(fmt.Sprintf("HOME_BACKGROUND_IMAGE_URL=%s\n", bgUrl)), 0600)
-	}
 
 	http.Redirect(w, r, "/ra", http.StatusSeeOther)
 }

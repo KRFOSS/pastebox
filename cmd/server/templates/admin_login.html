@@ -3,47 +3,555 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="color-scheme" content="dark">
   <title>관리자 로그인 - Pastebox</title>
-  <script src="https://cdn.tailwindcss.com"></script>
+  <style>
+    :root {
+      color-scheme: dark;
+      --bg: #080b10;
+      --surface: rgba(16, 21, 30, 0.88);
+      --surface-strong: #121821;
+      --border: rgba(148, 163, 184, 0.15);
+      --border-strong: rgba(148, 163, 184, 0.24);
+      --text: #f3f6fa;
+      --text-soft: #a6b0bf;
+      --text-muted: #6f7b8d;
+      --accent: #38bdf8;
+      --accent-soft: rgba(56, 189, 248, 0.11);
+      --success: #34d399;
+      --danger: #fb7185;
+      --danger-soft: rgba(251, 113, 133, 0.1);
+      --radius: 16px;
+      --radius-lg: 24px;
+      --font-sans: Inter, Pretendard, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      --font-mono: "SFMono-Regular", Consolas, "Liberation Mono", monospace;
+    }
+
+    * {
+      box-sizing: border-box;
+    }
+
+    html,
+    body {
+      min-width: 320px;
+      min-height: 100%;
+      margin: 0;
+    }
+
+    body {
+      min-height: 100vh;
+      display: grid;
+      place-items: center;
+      overflow-x: hidden;
+      color: var(--text);
+      background:
+        radial-gradient(circle at 12% 8%, rgba(14, 165, 233, 0.14), transparent 30rem),
+        radial-gradient(circle at 92% 92%, rgba(99, 102, 241, 0.1), transparent 34rem),
+        var(--bg);
+      font-family: var(--font-sans);
+      -webkit-font-smoothing: antialiased;
+    }
+
+    body::before {
+      position: fixed;
+      inset: 0;
+      content: "";
+      pointer-events: none;
+      opacity: 0.2;
+      background-image:
+        linear-gradient(rgba(148, 163, 184, 0.07) 1px, transparent 1px),
+        linear-gradient(90deg, rgba(148, 163, 184, 0.07) 1px, transparent 1px);
+      background-size: 52px 52px;
+      mask-image: linear-gradient(to bottom right, black, transparent 68%);
+    }
+
+    button,
+    input {
+      font: inherit;
+    }
+
+    button,
+    a {
+      -webkit-tap-highlight-color: transparent;
+      touch-action: manipulation;
+    }
+
+    a {
+      color: inherit;
+      text-decoration: none;
+    }
+
+    :focus-visible {
+      outline: 2px solid var(--accent);
+      outline-offset: 3px;
+    }
+
+    .login-shell {
+      position: relative;
+      z-index: 1;
+      width: min(1040px, calc(100% - 40px));
+      min-height: 610px;
+      display: grid;
+      grid-template-columns: 1.05fr 0.95fr;
+      overflow: hidden;
+      margin: 40px auto;
+      border: 1px solid var(--border);
+      border-radius: 28px;
+      background: rgba(10, 14, 20, 0.78);
+      box-shadow: 0 35px 100px rgba(0, 0, 0, 0.48);
+      backdrop-filter: blur(24px);
+    }
+
+    .brand-panel {
+      position: relative;
+      overflow: hidden;
+      display: flex;
+      flex-direction: column;
+      justify-content: space-between;
+      padding: 48px;
+      border-right: 1px solid var(--border);
+      background:
+        radial-gradient(circle at 15% 15%, rgba(56, 189, 248, 0.16), transparent 19rem),
+        linear-gradient(150deg, rgba(18, 27, 39, 0.95), rgba(9, 13, 19, 0.78));
+    }
+
+    .brand-panel::after {
+      position: absolute;
+      right: -120px;
+      bottom: -140px;
+      width: 360px;
+      height: 360px;
+      content: "";
+      border: 1px solid rgba(56, 189, 248, 0.08);
+      border-radius: 50%;
+      box-shadow:
+        0 0 0 50px rgba(56, 189, 248, 0.025),
+        0 0 0 100px rgba(56, 189, 248, 0.018);
+    }
+
+    .back-link,
+    .token-actions {
+      display: flex;
+      align-items: center;
+    }
+
+    .brand-message {
+      position: relative;
+      z-index: 1;
+      max-width: 410px;
+      margin: auto 0;
+    }
+
+    .eyebrow {
+      margin: 0 0 12px;
+      color: #7dd3fc;
+      font-size: 11px;
+      font-weight: 800;
+      letter-spacing: 0.14em;
+      text-transform: uppercase;
+    }
+
+    .brand-heading {
+      margin: 0;
+      font-size: clamp(34px, 5vw, 52px);
+      font-weight: 760;
+      letter-spacing: -0.055em;
+      line-height: 1.08;
+    }
+
+    .form-panel {
+      display: flex;
+      align-items: center;
+      padding: 48px;
+      background: rgba(8, 11, 16, 0.58);
+    }
+
+    .form-content {
+      width: 100%;
+      max-width: 390px;
+      margin: 0 auto;
+    }
+
+    .back-link {
+      width: max-content;
+      gap: 7px;
+      margin-bottom: 45px;
+      color: var(--text-muted);
+      font-size: 11px;
+      font-weight: 680;
+      transition: color 150ms ease;
+    }
+
+    .back-link:hover {
+      color: var(--text-soft);
+    }
+
+    .back-link svg {
+      width: 14px;
+      height: 14px;
+      stroke: currentColor;
+    }
+
+    .form-badge {
+      display: inline-flex;
+      align-items: center;
+      min-height: 26px;
+      margin-bottom: 16px;
+      padding: 0 10px;
+      color: #7dd3fc;
+      border: 1px solid rgba(56, 189, 248, 0.16);
+      border-radius: 999px;
+      background: var(--accent-soft);
+      font-size: 10px;
+      font-weight: 760;
+      letter-spacing: 0.04em;
+    }
+
+    h1 {
+      margin: 0 0 10px;
+      font-size: 28px;
+      font-weight: 760;
+      letter-spacing: -0.04em;
+    }
+
+    .form-description {
+      margin: 0 0 30px;
+      color: var(--text-soft);
+      font-size: 13px;
+      line-height: 1.65;
+    }
+
+    .error-alert {
+      display: flex;
+      align-items: flex-start;
+      gap: 10px;
+      margin-bottom: 18px;
+      padding: 12px 13px;
+      color: #fecdd3;
+      border: 1px solid rgba(251, 113, 133, 0.18);
+      border-radius: 12px;
+      background: var(--danger-soft);
+      font-size: 11px;
+      line-height: 1.5;
+    }
+
+    .error-alert svg {
+      width: 16px;
+      height: 16px;
+      flex: 0 0 auto;
+      margin-top: 1px;
+      stroke: currentColor;
+    }
+
+    .field-group {
+      margin-bottom: 17px;
+    }
+
+    .field-label {
+      display: flex;
+      justify-content: space-between;
+      margin-bottom: 9px;
+      color: #cbd3df;
+      font-size: 11px;
+      font-weight: 720;
+    }
+
+    .field-hint {
+      color: var(--text-muted);
+      font-weight: 560;
+    }
+
+    .token-field {
+      position: relative;
+    }
+
+    .field {
+      width: 100%;
+      height: 48px;
+      padding: 0 48px 0 14px;
+      color: var(--text);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      outline: none;
+      background: rgba(2, 5, 10, 0.58);
+      font-family: var(--font-mono);
+      font-size: 12px;
+      letter-spacing: 0.02em;
+      transition: border-color 160ms ease, box-shadow 160ms ease, background 160ms ease;
+    }
+
+    .field::placeholder {
+      color: #465160;
+      font-family: var(--font-sans);
+      letter-spacing: 0;
+    }
+
+    .field:focus {
+      border-color: rgba(56, 189, 248, 0.6);
+      background: rgba(2, 5, 10, 0.78);
+      box-shadow: 0 0 0 4px rgba(56, 189, 248, 0.09);
+    }
+
+    .token-toggle {
+      position: absolute;
+      top: 50%;
+      right: 8px;
+      width: 34px;
+      height: 34px;
+      display: grid;
+      place-items: center;
+      color: var(--text-muted);
+      border: 0;
+      border-radius: 9px;
+      background: transparent;
+      cursor: pointer;
+      transform: translateY(-50%);
+      transition: color 150ms ease, background 150ms ease;
+    }
+
+    .token-toggle:hover {
+      color: var(--text-soft);
+      background: rgba(255, 255, 255, 0.05);
+    }
+
+    .token-toggle svg {
+      width: 17px;
+      height: 17px;
+      stroke: currentColor;
+    }
+
+    .submit-button {
+      width: 100%;
+      height: 48px;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      gap: 9px;
+      color: #03131d;
+      border: 1px solid rgba(125, 211, 252, 0.3);
+      border-radius: 12px;
+      background: linear-gradient(180deg, #7dd3fc, #38bdf8);
+      box-shadow: 0 14px 30px rgba(14, 165, 233, 0.17);
+      font-size: 12px;
+      font-weight: 780;
+      cursor: pointer;
+      transition: background 160ms ease, box-shadow 160ms ease, transform 120ms ease;
+    }
+
+    .submit-button:hover {
+      background: linear-gradient(180deg, #bae6fd, #38bdf8);
+      box-shadow: 0 16px 34px rgba(14, 165, 233, 0.23);
+    }
+
+    .submit-button:active {
+      transform: translateY(1px);
+    }
+
+    .submit-button svg {
+      width: 16px;
+      height: 16px;
+      stroke: currentColor;
+    }
+
+    .login-divider {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      margin: 20px 0;
+      color: var(--text-muted);
+      font-size: 10px;
+      font-weight: 700;
+    }
+
+    .login-divider::before,
+    .login-divider::after {
+      height: 1px;
+      flex: 1;
+      content: "";
+      background: var(--border);
+    }
+
+    .discord-button {
+      width: 100%;
+      height: 48px;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      gap: 10px;
+      color: #fff;
+      border: 1px solid rgba(255, 255, 255, 0.11);
+      border-radius: 12px;
+      background: #5865f2;
+      box-shadow: 0 14px 30px rgba(88, 101, 242, 0.15);
+      font-size: 12px;
+      font-weight: 780;
+      transition: background 160ms ease, box-shadow 160ms ease, transform 120ms ease;
+    }
+
+    .discord-button:hover {
+      background: #6875f5;
+      box-shadow: 0 16px 34px rgba(88, 101, 242, 0.23);
+    }
+
+    .discord-button:active {
+      transform: translateY(1px);
+    }
+
+    .discord-button svg {
+      width: 19px;
+      height: 19px;
+      fill: currentColor;
+    }
+
+    .security-note {
+      margin: 18px 0 0;
+      color: var(--text-muted);
+      font-size: 10px;
+      line-height: 1.6;
+      text-align: center;
+    }
+
+    @media (max-width: 820px) {
+      .login-shell {
+        max-width: 520px;
+        min-height: 0;
+        grid-template-columns: 1fr;
+      }
+
+      .brand-panel {
+        padding: 28px;
+        border-right: 0;
+        border-bottom: 1px solid var(--border);
+      }
+
+      .brand-heading {
+        font-size: 38px;
+      }
+
+      .form-panel {
+        padding: 36px 28px 38px;
+      }
+
+      .back-link {
+        margin-bottom: 32px;
+      }
+    }
+
+    @media (max-width: 520px) {
+      .login-shell {
+        width: min(100% - 24px, 520px);
+        margin: 12px auto;
+        border-radius: 21px;
+      }
+
+      .brand-panel {
+        padding: 23px;
+      }
+
+      .brand-heading {
+        font-size: 32px;
+      }
+
+      .form-panel {
+        padding: 29px 23px 31px;
+      }
+    }
+
+    @media (prefers-reduced-motion: reduce) {
+      *,
+      *::before,
+      *::after {
+        transition-duration: 0.01ms !important;
+      }
+    }
+  </style>
 </head>
-<body class="min-h-screen bg-[#0d0d0e] text-zinc-100 flex items-center justify-center p-4">
-  <div class="w-full max-w-md bg-zinc-900/60 backdrop-blur-xl border border-zinc-800/80 rounded-2xl p-8 shadow-2xl transition-all duration-300 hover:border-zinc-700/80">
-    <div class="mb-6 text-center">
-      <div class="inline-flex rounded-full bg-amber-500/10 border border-amber-500/20 px-3 py-1 text-xs font-medium text-amber-400 mb-2">
-        관리자 콘솔
+<body>
+  <main class="login-shell">
+    <section class="brand-panel" aria-label="ROKFOSS Pastebox 관리자 로그인">
+      <div class="brand-message">
+        <p class="eyebrow">ROKFOSS Pastebox</p>
+        <h2 class="brand-heading">관리자 로그인</h2>
       </div>
-      <div class="flex items-center justify-center gap-2">
-        <img data-cfasync="false" loading="eager" decoding="async" src="https://cdn.krfoss.org/web/ROKFOSS.png" alt="ROKFOSS" class="h-8">
-        <h1 class="text-2xl font-bold tracking-tight text-zinc-500">/ 관리자</h1>
-      </div>
-      <p class="mt-2 text-sm text-zinc-400">대시보드 진입을 위해 256자 토큰을 입력해 주세요.</p>
-    </div>
+    </section>
 
-    {{ if .Error }}
-    <div class="mb-4 rounded-xl bg-red-500/10 border border-red-500/20 p-3 text-xs text-red-400 text-center">
-      {{ .Error }}
-    </div>
-    {{ end }}
+    <section class="form-panel">
+      <div class="form-content">
+        <a class="back-link" href="/">
+          <svg viewBox="0 0 24 24" fill="none" stroke-width="1.8" aria-hidden="true"><path d="m15 18-6-6 6-6" stroke-linecap="round" stroke-linejoin="round"/></svg>
+          사용자 홈으로 돌아가기
+        </a>
 
-    <form action="/ra/login" method="POST" class="space-y-4">
-      <div>
-        <label for="token" class="block text-xs font-semibold text-zinc-400 uppercase tracking-wider mb-2">액세스 토큰</label>
-        <textarea
-          id="token"
-          name="token"
-          rows="4"
-          required
-          placeholder="256자 토큰을 여기에 붙여넣으세요..."
-          class="w-full rounded-xl border border-zinc-800 bg-zinc-950/80 p-3 text-xs font-mono text-zinc-300 placeholder-zinc-600 focus:border-zinc-700 focus:ring-1 focus:ring-zinc-700 focus:outline-none transition"
-        ></textarea>
+        <span class="form-badge">관리자 전용</span>
+        <h1>관리 콘솔 로그인</h1>
+        <p class="form-description">서버 설정에 등록된 관리자 토큰으로 인증해 주세요.</p>
+
+        {{ if .Error }}
+        <div class="error-alert" role="alert">
+          <svg viewBox="0 0 24 24" fill="none" stroke-width="1.8" aria-hidden="true">
+            <path d="M12 8v5M12 17h.01" stroke-linecap="round"/>
+            <path d="m10.3 4.9-7 12.1A2 2 0 0 0 5 20h14a2 2 0 0 0 1.7-3l-7-12.1a2 2 0 0 0-3.4 0Z" stroke-linejoin="round"/>
+          </svg>
+          <span>{{ .Error }}</span>
+        </div>
+        {{ end }}
+
+        <form action="/ra/login" method="POST">
+          <div class="field-group">
+            <label class="field-label" for="token">
+              <span>관리자 토큰</span>
+              <span class="field-hint">ADMIN_TOKEN</span>
+            </label>
+            <div class="token-field">
+              <input class="field" id="token" name="token" type="password" required autofocus autocomplete="current-password" spellcheck="false" placeholder="관리자 토큰을 붙여넣으세요">
+              <button class="token-toggle" id="token-toggle" type="button" aria-label="토큰 표시" aria-pressed="false">
+                <svg id="eye-open" viewBox="0 0 24 24" fill="none" stroke-width="1.8" aria-hidden="true">
+                  <path d="M2.5 12s3.5-6 9.5-6 9.5 6 9.5 6-3.5 6-9.5 6S2.5 12 2.5 12Z"/>
+                  <circle cx="12" cy="12" r="2.5"/>
+                </svg>
+                <svg id="eye-closed" viewBox="0 0 24 24" fill="none" stroke-width="1.8" aria-hidden="true" hidden>
+                  <path d="m3 3 18 18M10.6 6.1A10.9 10.9 0 0 1 12 6c6 0 9.5 6 9.5 6a16.5 16.5 0 0 1-2.1 2.8M6.2 6.2C3.8 7.8 2.5 12 2.5 12s3.5 6 9.5 6c1.6 0 3-.4 4.2-1" stroke-linecap="round"/>
+                </svg>
+              </button>
+            </div>
+          </div>
+
+          <button class="submit-button" type="submit">
+            관리자 인증
+            <svg viewBox="0 0 24 24" fill="none" stroke-width="1.8" aria-hidden="true"><path d="m9 18 6-6-6-6" stroke-linecap="round" stroke-linejoin="round"/></svg>
+          </button>
+        </form>
+
+        {{ if .DiscordOAuthReady }}
+        <div class="login-divider" aria-hidden="true">또는</div>
+        <a class="discord-button" href="/ra/discord/login">
+          <svg viewBox="0 0 24 24" aria-hidden="true">
+            <path d="M19.5 5.3A17.3 17.3 0 0 0 15.4 4l-.5 1.1a15.7 15.7 0 0 0-5.8 0L8.6 4a17.2 17.2 0 0 0-4.1 1.3C1.9 9.2 1.2 13 1.5 16.8a16.6 16.6 0 0 0 5 2.5l1.2-1.7a10.5 10.5 0 0 1-1.9-.9l.5-.4a12.4 12.4 0 0 0 11.4 0l.5.4c-.6.4-1.2.7-1.9.9l1.2 1.7a16.6 16.6 0 0 0 5-2.5c.4-4.4-.7-8.2-3-11.5ZM8.5 14.5c-1 0-1.8-.9-1.8-2s.8-2 1.8-2 1.8.9 1.8 2-.8 2-1.8 2Zm7 0c-1 0-1.8-.9-1.8-2s.8-2 1.8-2 1.8.9 1.8 2-.8 2-1.8 2Z"/>
+          </svg>
+          Discord로 로그인
+        </a>
+        {{ end }}
+
+        <p class="security-note">인증 정보는 Pastebox 서버의 관리자 세션 확인에만 사용됩니다.</p>
       </div>
-      <button
-        type="submit"
-        class="w-full rounded-xl bg-zinc-100 py-3 font-semibold text-zinc-950 hover:bg-white active:scale-[0.98] transition duration-200"
-      >
-        로그인
-      </button>
-    </form>
-  </div>
+    </section>
+  </main>
+
+  <script>
+    const tokenInput = document.getElementById('token');
+    const tokenToggle = document.getElementById('token-toggle');
+    const eyeOpen = document.getElementById('eye-open');
+    const eyeClosed = document.getElementById('eye-closed');
+
+    tokenToggle.addEventListener('click', () => {
+      const willShow = tokenInput.type === 'password';
+      tokenInput.type = willShow ? 'text' : 'password';
+      tokenToggle.setAttribute('aria-pressed', String(willShow));
+      tokenToggle.setAttribute('aria-label', willShow ? '토큰 숨기기' : '토큰 표시');
+      eyeOpen.hidden = willShow;
+      eyeClosed.hidden = !willShow;
+      tokenInput.focus();
+    });
+  </script>
 </body>
 </html>
