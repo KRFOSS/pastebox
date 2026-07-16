@@ -3,7 +3,6 @@ package main
 import (
 	"bufio"
 	"errors"
-	"fmt"
 	"log"
 	"os"
 	"strconv"
@@ -156,9 +155,6 @@ func writeConfigFile(path string, content []byte) error {
 }
 
 func (a *app) configFilePath() string {
-	if strings.TrimSpace(a.configPath) == "" {
-		return "config.conf"
-	}
 	return a.configPath
 }
 
@@ -223,37 +219,5 @@ func ensureAdminToken(path string, cfg *config) error {
 }
 
 func persistAdminToken(path string, cfg *config, token string) error {
-	data, err := os.ReadFile(path)
-	if err != nil {
-		if errors.Is(err, os.ErrNotExist) {
-			content := fmt.Sprintf("STORAGE_MODE=%s\nLISTEN_ADDR=%s\nDATA_DIR=%s\nEXPIRE_DAYS=%d\nDB_DSN=%s\nDB_COMPRESSION_ALGORITHM=%s\nADMIN_TOKEN=%s\n",
-				cfg.StorageMode, cfg.ListenAddr, cfg.DataDir, cfg.ExpireDays, cfg.DBDSN, cfg.DBCompress, token)
-			return writeConfigFile(path, []byte(content))
-		}
-		return err
-	}
-
-	lines := strings.Split(string(data), "\n")
-	found := false
-	for i, line := range lines {
-		trimmed := strings.TrimSpace(line)
-		if strings.HasPrefix(strings.ToUpper(trimmed), "ADMIN_TOKEN") {
-			parts := strings.SplitN(line, "=", 2)
-			if len(parts) > 0 {
-				lines[i] = "ADMIN_TOKEN=" + token
-				found = true
-				break
-			}
-		}
-	}
-
-	if !found {
-		if len(lines) > 0 && lines[len(lines)-1] != "" {
-			lines = append(lines, "")
-		}
-		lines = append(lines, "ADMIN_TOKEN="+token)
-	}
-
-	newContent := strings.Join(lines, "\n")
-	return writeConfigFile(path, []byte(newContent))
+	return persistConfigValues(path, map[string]string{"ADMIN_TOKEN": token})
 }

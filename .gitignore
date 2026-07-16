@@ -26,5 +26,6 @@ config.conf
 *.sln
 *.swp
 *~
-.commandcode/
-mcps/
+
+.claude
+.fva

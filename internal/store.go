@@ -1429,45 +1429,7 @@ func generatePassword(length int) (string, error) {
 	if length < 4 {
 		length = 8
 	}
-
-	upper := "ABCDEFGHIJKLMNOPQRSTUVWXYZ"
-	lower := "abcdefghijklmnopqrstuvwxyz"
-	digits := "0123456789"
-	all := upper + lower + digits
-
-	result := make([]byte, 0, length)
-
-	a, err := randomChar(upper)
-	if err != nil {
-		return "", err
-	}
-	result = append(result, a)
-
-	a, err = randomChar(lower)
-	if err != nil {
-		return "", err
-	}
-	result = append(result, a)
-
-	a, err = randomChar(digits)
-	if err != nil {
-		return "", err
-	}
-	result = append(result, a)
-
-	for len(result) < length {
-		a, err = randomChar(all)
-		if err != nil {
-			return "", err
-		}
-		result = append(result, a)
-	}
-
-	if err := shuffleBytes(result); err != nil {
-		return "", err
-	}
-
-	return string(result), nil
+	return RandomString(AlphanumericAlphabet, length)
 }
 
 func randomChar(alphabet string) (byte, error) {
@@ -1512,21 +1474,8 @@ func randomIndex(max int) (int, error) {
 	}
 }
 
-func shuffleBytes(data []byte) error {
-	for i := len(data) - 1; i > 0; i-- {
-		j, err := randomIndex(i + 1)
-		if err != nil {
-			return err
-		}
-
-		data[i], data[j] = data[j], data[i]
-	}
-
-	return nil
-}
-
-const idAlphabet = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789"
-const tokenAlphabet = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789"
+const idAlphabet = AlphanumericAlphabet
+const tokenAlphabet = AlphanumericAlphabet
 
 // AlphanumericAlphabet은 외부에서 사용할 수 있는 영숫자 알파벳입니다.
 const AlphanumericAlphabet = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789"

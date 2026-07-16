@@ -546,7 +546,12 @@ func (a *app) viewHandler(w http.ResponseWriter, r *http.Request, id string) {
 		contentType = "application/octet-stream"
 	}
 
-	if isTextEntry(entry) {
+	if strings.HasPrefix(contentType, "text/") ||
+		strings.Contains(contentType, "json") ||
+		strings.Contains(contentType, "xml") ||
+		strings.Contains(contentType, "yaml") ||
+		strings.Contains(contentType, "javascript") ||
+		strings.Contains(contentType, "x-sh") {
 		w.Header().Set("Content-Type", "text/plain; charset=utf-8")
 		if browser {
 			content, err := io.ReadAll(entry.File)
@@ -580,41 +585,6 @@ func isBrowserRequest(r *http.Request) bool {
 
 	accept := strings.ToLower(r.Header.Get("Accept"))
 	return strings.Contains(accept, "text/html") || accept == ""
-}
-
-func isTextEntry(entry *pastebox.Entry) bool {
-	contentType := strings.ToLower(entry.Meta.ContentType)
-	if strings.HasPrefix(contentType, "text/") {
-		return true
-	}
-
-	if strings.Contains(contentType, "json") ||
-		strings.Contains(contentType, "xml") ||
-		strings.Contains(contentType, "yaml") ||
-		strings.Contains(contentType, "javascript") ||
-		strings.Contains(contentType, "x-sh") {
-		return true
-	}
-
-	pos, _ := entry.File.Seek(0, io.SeekCurrent)
-
-	buf := make([]byte, 4096)
-	n, _ := entry.File.Read(buf)
-	_, _ = entry.File.Seek(pos, io.SeekStart)
-
-	if n == 0 {
-		return true
-	}
-
-	detected := http.DetectContentType(buf[:n])
-	if strings.HasPrefix(detected, "text/") {
-		return true
-	}
-	if strings.Contains(detected, "json") {
-		return true
-	}
-
-	return looksLikeText(buf[:n])
 }
 
 func looksLikeText(buf []byte) bool {

@@ -143,10 +143,7 @@ func (a *app) discordOAuthReady() bool {
 }
 
 func (a *app) discordHTTP() *http.Client {
-	if a.discordHTTPClient != nil {
-		return a.discordHTTPClient
-	}
-	return &http.Client{Timeout: 10 * time.Second}
+	return a.discordHTTPClient
 }
 
 func (a *app) saveDiscordOAuthConfig(next discordOAuthConfig, clearAdmins bool) error {
