@@ -7,9 +7,6 @@ APP_GROUP="${APP_GROUP:-pastebox}"
 
 mkdir -p "$DATA_DIR"
 
-# Bind mounts inherit host-side ownership. Make the directory writable before
-# dropping privileges. Some filesystems ignore chown, so chmod is kept as a
-# fallback for local Docker Desktop / rootless Docker cases.
 chown -R "$APP_USER:$APP_GROUP" "$DATA_DIR" 2>/dev/null || true
 chmod -R u+rwX,g+rwX,o+rwX "$DATA_DIR" 2>/dev/null || true
 
