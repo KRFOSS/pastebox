@@ -126,6 +126,11 @@ func main() {
 	uploadLimiter := newRateLimiter(rateLimitPerSec, rateBurst)
 
 	mux := http.NewServeMux()
+	mux.HandleFunc("/health", func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "text/plain; charset=utf-8")
+		w.WriteHeader(http.StatusOK)
+		w.Write([]byte("ok"))
+	})
 	mux.HandleFunc("/", uploadLimiter.middleware(a.handle))
 	mux.HandleFunc("/ra", a.adminHandler)
 	mux.HandleFunc("/ra/login", uploadLimiter.middleware(a.adminLoginHandler))
