@@ -7,7 +7,7 @@ curl 기반 텍스트/로그 공유 서비스
 
 ![](./preview.png)
 
-> ROKFOSS Pastebox 관련 문의는 [ROKFOSS 공식 디스코드](https://chat.krfoss.org) 또는 github@krfoss.org 으로 문의하여 주시길 바랍니다.
+> ROKFOSS Pastebox 관련 문의는 [ROKFOSS 공식 디스코드](https://chat.krfoss.org) 또는 <github@krfoss.org> 으로 문의하여 주시길 바랍니다.
 
 ## 서비스 주소
 
@@ -19,10 +19,11 @@ curl 기반 텍스트/로그 공유 서비스
 
 | 레이어     | 스택                                                          |
 | ---------- | ------------------------------------------------------------- |
-| OS         | Alpine Linux 3.23.4 (미러: https://mirror5.krfoss.org/alpine) |
+| OS         | Alpine Linux 3.23.4                                           |
+|            | 미러: <https://mirror5.krfoss.org/alpine>                       |
 | 언어       | Go                                                            |
-| 프론트엔드 | Go HTML Template                                              |
-| 백엔드     | Go Standard Library HTTP Server                               |
+| 웹         | Frontend: Go HTML Template                                    |
+|            | Backend: Go Standard Library HTTP Server                      |
 | 저장소     | Local File Storage / MariaDB (선택 가능)                      |
 | 압축 기술  | zstd / gzip (DB 모드 시 사용 가능)                            |
 
@@ -30,9 +31,11 @@ curl 기반 텍스트/로그 공유 서비스
 
 1. 저장소를 클론하거나 `.zip` 파일로 다운로드하세요.
 2. `config.example.conf` 파일을 복사하여 `config.conf` 설정 파일을 만듭니다.
+
    ```bash
    cp config.example.conf config.conf
    ```
+
 3. 로컬 파일 저장소 모드로 가볍게 실행할지, 대규모 처리를 위해 MariaDB 모드를 활성화할지 `config.conf`를 수정하여 선택합니다.
 4. **직접 컴파일하여 실행 (Go 환경)**
 
@@ -113,13 +116,15 @@ ADMIN_TOKEN=
 2. **텍스트 업로드**: **echo, cat (cat << EOF)**와 같이 리눅스 명령어와 연계하여 업로드 가능
 
    ```bash
-   echo "hello" | curl -X POST --data-binary @- http://localhost:8080/
+   echo "hello" | curl --data-binary @- http://localhost:8080/
    ```
 
 3. **명령어 출력 업로드**: 서버 로그나 시스템 현황(`ifconfig`, `df -h` 등) 결과를 직접 파이프로 연결하여 다이렉트 업로드 가능
+
    ```bash
-   ifconfig | curl -X POST --data-binary @- http://localhost:8080/
+   ifconfig | curl --data-binary @- http://localhost:8080/
    ```
+
 4. **텍스트 파일 업로드**: `multipart/form-data` 대신 대용량 처리에 유리한 바이너리 직접 전송 방식 지원
 
    ```bash
@@ -148,14 +153,14 @@ ADMIN_TOKEN=
 
    ```bash
    # 비밀번호 12345:
-   echo "secret" | curl -X POST --data-binary @- http://localhost:8080/pw/12345
+   echo "secret" | curl --data-binary @- http://localhost:8080/pw/12345
 
    # 비밀번호 12345 + 1회 열람 후 파기 / + 1주 보관:
-   echo "secret" | curl -X POST --data-binary @- http://localhost:8080/pw/12345/temp
-   echo "secret" | curl -X POST --data-binary @- http://localhost:8080/pw/12345/week
+   echo "secret" | curl --data-binary @- http://localhost:8080/pw/12345/temp
+   echo "secret" | curl --data-binary @- http://localhost:8080/pw/12345/week
 
    # 헤더로 지정 (URL 로그 노출 방지). 정책 경로와 자유롭게 조합 가능:
-   echo "secret" | curl -H "custom-pw: 12345" -X POST --data-binary @- http://localhost:8080/week
+   echo "secret" | curl -H "custom-pw: 12345" --data-binary @- http://localhost:8080/week
    ```
 
    > `/pw/<비밀번호>` 방식은 비밀번호가 URL 경로에 포함되어 프록시·접근 로그에 남습니다. 민감하면 `custom-pw` 헤더 방식을 권장합니다.
@@ -164,16 +169,18 @@ ADMIN_TOKEN=
 6. **1주 보관 후 자동 삭제**: `/week` 경로를 사용하면 업로드 시점 기준 7일 후 자동삭제
 
    ```bash
-   echo "hello" | curl -X POST --data-binary @- http://localhost:8080/week
+   echo "hello" | curl --data-binary @- http://localhost:8080/week
    ```
 
 7. **JSON 응답 업로드 경로**: 기존 텍스트 응답과 별개로 업로드 결과를 JSON으로 받을 수 있습니다.
+
    ```bash
-   curl -X POST --data-binary @- http://localhost:8080/json
-   curl -X POST --data-binary @- http://localhost:8080/week/json
-   curl -X POST --data-binary @- http://localhost:8080/pw/json
-   curl -X POST --data-binary @- http://localhost:8080/pw/12345/week/json
+   curl --data-binary @- http://localhost:8080/json
+   curl --data-binary @- http://localhost:8080/week/json
+   curl --data-binary @- http://localhost:8080/pw/json
+   curl --data-binary @- http://localhost:8080/pw/12345/week/json
    ```
+
 8. **대규모 압축 인메모리 파이프라인 (DB 모드)**:
    - 데이터베이스 연동 시, 업로드한 데이터를 Go 백엔드 메모리 단에서 `zstd` 또는 `gzip`을 통해 초고압축하여 DB에 축소 보관합니다.
    - 이를 통해 디스크 용량을 최대 90% 이상 절감하며 디스크 I/O와 대역폭 사용을 최소화하여 조회가 급증하는 환경에서도 빠른 응답 속도를 냅니다.
@@ -184,10 +191,11 @@ ADMIN_TOKEN=
    - 최초 기동 시 `ADMIN_TOKEN` 설정이 비어있다면 영문 대소문자 및 숫자 조합의 256자 마스터 토큰이 자동으로 생성되어 `config.conf`에 영구 보존됩니다. (최초 생성 시 서버 표준 출력 로그를 통해 토큰 정보를 확인할 수 있습니다.)
 
 10. **Discord OAuth 관리자 로그인 (`/ra/discord`)**:
-   - MariaDB 저장소 모드에서만 사용할 수 있습니다. 먼저 `ADMIN_TOKEN`으로 로그인한 뒤 관리자 페이지의 **Discord 로그인** 메뉴에서 Client ID, Client Secret, Redirect URI를 저장합니다.
-   - Discord Developer Portal에도 `https://<서비스-도메인>/ra/discord/callback` 형식의 Redirect URI를 동일하게 등록해야 합니다.
-   - **Discord 계정 연동**으로 여러 관리자 계정을 등록할 수 있으며, 목록에 등록되지 않은 계정은 OAuth 인증에 성공하더라도 거부됩니다.
-   - OAuth 설정, 관리자 계정 목록, 일회용 `state` 값은 공유 데이터베이스에 저장되므로 여러 Pastebox 서버가 동일하게 사용합니다. `identify` 범위만 사용하며 Discord 액세스 토큰과 리프레시 토큰은 저장하지 않습니다.
+
+- MariaDB 저장소 모드에서만 사용할 수 있습니다. 먼저 `ADMIN_TOKEN`으로 로그인한 뒤 관리자 페이지의 **Discord 로그인** 메뉴에서 Client ID, Client Secret, Redirect URI를 저장합니다.
+- Discord Developer Portal에도 `https://<서비스-도메인>/ra/discord/callback` 형식의 Redirect URI를 동일하게 등록해야 합니다.
+- **Discord 계정 연동**으로 여러 관리자 계정을 등록할 수 있으며, 목록에 등록되지 않은 계정은 OAuth 인증에 성공하더라도 거부됩니다.
+- OAuth 설정, 관리자 계정 목록, 일회용 `state` 값은 공유 데이터베이스에 저장되므로 여러 Pastebox 서버가 동일하게 사용합니다. `identify` 범위만 사용하며 Discord 액세스 토큰과 리프레시 토큰은 저장하지 않습니다.
 
 ### 프로젝트 구조
 
