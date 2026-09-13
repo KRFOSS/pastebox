@@ -283,7 +283,8 @@
                 width: 100%;
             }
 
-            .tos-modal .modal-content {
+            .tos-modal .modal-content,
+            .upload-modal .modal-content {
                 padding: 22px 20px;
             }
         }
@@ -327,7 +328,8 @@
             transform: scale(1);
         }
 
-        .tos-modal .modal-content {
+        .tos-modal .modal-content,
+        .upload-modal .modal-content {
             background: var(--surface);
             border: 1px solid var(--hairline);
             border-radius: 0;
@@ -336,17 +338,136 @@
             box-shadow: none;
         }
 
-        .tos-modal .modal-title {
+        .tos-modal .modal-title,
+        .upload-modal .modal-title {
             padding-bottom: 14px;
             margin-bottom: 18px;
             border-bottom: 1px solid var(--hairline);
             color: var(--text);
         }
 
-        .tos-modal .modal-body {
+        .tos-modal .modal-body,
+        .upload-modal .modal-body {
             margin-bottom: 24px;
             color: var(--text-muted);
             line-height: 1.7;
+        }
+
+        .upload-modal .upload-tabs {
+            display: flex;
+            gap: 10px;
+            margin-bottom: 20px;
+        }
+
+        .upload-modal .upload-tabs .button {
+            flex: 1;
+        }
+
+        .upload-modal .upload-textarea,
+        .upload-modal .upload-password-input {
+            width: 100%;
+            box-sizing: border-box;
+            background: var(--surface-raised);
+            color: var(--text);
+            border: 1px solid var(--hairline-strong);
+            border-radius: 0;
+            padding: 12px;
+            font-family: ui-monospace, SFMono-Regular, SF Mono, Menlo, Monaco, Consolas, monospace;
+            font-size: 14px;
+            outline: none;
+        }
+
+        .upload-modal .upload-textarea {
+            height: 200px;
+            resize: vertical;
+            margin-bottom: 16px;
+        }
+
+        .upload-modal .upload-dropzone,
+        .upload-modal .upload-options,
+        .upload-modal .upload-result {
+            background: var(--surface-raised);
+            border: 1px solid var(--hairline);
+            border-radius: 0;
+        }
+
+        .upload-modal .upload-dropzone {
+            padding: 40px 20px;
+            text-align: center;
+            margin-bottom: 16px;
+            cursor: pointer;
+            transition: background 0.2s;
+        }
+
+        .upload-modal .upload-dropzone:hover {
+            background: rgba(255, 255, 255, 0.04);
+        }
+
+        .upload-modal .upload-options {
+            display: grid;
+            gap: 10px;
+            padding: 16px;
+            margin-bottom: 24px;
+        }
+
+        .upload-modal .upload-option {
+            display: flex;
+            align-items: center;
+            min-height: 42px;
+            padding: 10px 12px;
+            color: var(--text-muted);
+            border: 1px solid var(--hairline-strong);
+            background: transparent;
+            cursor: pointer;
+            transition: border-color 0.18s ease, background 0.18s ease, color 0.18s ease;
+        }
+
+        .upload-modal .upload-option:hover {
+            color: var(--text);
+            background: rgba(255, 255, 255, 0.04);
+            border-color: var(--text);
+        }
+
+        .upload-modal .upload-option:has(input:checked) {
+            color: #111315;
+            background: var(--button-primary);
+            border-color: var(--button-primary);
+        }
+
+        .upload-modal .upload-option input {
+            margin-right: 10px;
+            width: 16px;
+            height: 16px;
+            appearance: none;
+            -webkit-appearance: none;
+            flex: 0 0 16px;
+            border: 1px solid currentColor;
+            border-radius: 0;
+            background: transparent;
+            cursor: pointer;
+        }
+
+        .upload-modal .upload-option input:checked {
+            background-color: #111315;
+            background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3E%3Cpath d='m3 8 3 3 7-7' fill='none' stroke='%23fff' stroke-linecap='square' stroke-width='2'/%3E%3C/svg%3E");
+            background-position: center;
+            background-repeat: no-repeat;
+            background-size: 12px;
+        }
+
+        .upload-modal .upload-option span,
+        .upload-modal .upload-dropzone p {
+            font-size: 14px;
+            color: inherit;
+        }
+
+        .upload-modal .upload-password-wrap {
+            margin: -4px 0 2px;
+        }
+
+        .upload-modal .upload-result {
+            padding: 20px;
+            margin-bottom: 20px;
         }
 
         .modal-title {
@@ -480,42 +601,42 @@ curl --data-binary @secret.txt {{ .BaseURL }}/pw/12345/week</span>
     </div>
 
     <!-- Upload Modal -->
-    <div class="modal-overlay" id="uploadModal" onclick="if(event.target===this) closeUploadModal()">
-        <div class="modal-content" style="max-width: 600px;">
+    <div class="modal-overlay upload-modal" id="uploadModal" onclick="if(event.target===this) closeUploadModal()">
+        <div class="modal-content">
             <h2 class="modal-title">웹 업로드</h2>
             <div class="modal-body" id="uploadFormBody">
-                <div style="display: flex; gap: 10px; margin-bottom: 20px;">
-                    <button class="button button-primary" id="tabTextBtn" onclick="switchTab('text')" style="flex:1;">텍스트 입력</button>
-                    <button class="button" id="tabFileBtn" onclick="switchTab('file')" style="flex:1;">파일 선택</button>
+                <div class="upload-tabs">
+                    <button class="button button-primary" id="tabTextBtn" onclick="switchTab('text')">텍스트 입력</button>
+                    <button class="button" id="tabFileBtn" onclick="switchTab('file')">파일 선택</button>
                 </div>
                 
                 <div id="textUploadArea">
-                    <textarea id="uploadText" placeholder="여기에 텍스트나 로그를 붙여넣으세요..." style="width: 100%; height: 200px; background: #1a1a1a; color: #e5e5e5; border: 1px solid rgba(84,84,88,0.4); border-radius: 8px; padding: 12px; font-family: monospace; resize: vertical; margin-bottom: 16px; outline: none;"></textarea>
+                    <textarea class="upload-textarea" id="uploadText" placeholder="여기에 텍스트나 로그를 붙여넣으세요"></textarea>
                 </div>
                 
                 <div id="fileUploadArea" style="display: none;">
-                    <div style="border: 2px dashed rgba(84,84,88,0.4); border-radius: 8px; padding: 40px 20px; text-align: center; margin-bottom: 16px; cursor: pointer; background: #1a1a1a; transition: background 0.2s;" onclick="document.getElementById('uploadFile').click()" onmouseover="this.style.background='#2c2c2e'" onmouseout="this.style.background='#1a1a1a'">
-                        <p style="margin: 0; color: #aaa;">클릭하여 텍스트 파일을 선택하세요.</p>
+                    <div class="upload-dropzone" onclick="document.getElementById('uploadFile').click()">
+                        <p style="margin: 0;">클릭하여 텍스트 파일을 선택하세요.</p>
                         <input type="file" id="uploadFile" style="display: none;" onchange="updateFileName(this)">
                         <p id="fileNameDisplay" style="margin-top: 10px; color: #06b6d4; font-weight: bold; font-size: 14px;"></p>
                     </div>
                 </div>
 
-                <div style="background: rgba(0,0,0,0.2); padding: 16px; border-radius: 8px; margin-bottom: 24px;">
-                    <label style="display: flex; align-items: center; cursor: pointer; margin-bottom: 12px;">
-                        <input type="checkbox" id="optPassword" onchange="toggleCustomPwInput()" style="margin-right: 10px; width: 16px; height: 16px; accent-color: #06b6d4;">
-                        <span style="font-size: 14px; color: #e5e5e5;">비밀번호로 보호하기</span>
+                <div class="upload-options">
+                    <label class="upload-option">
+                        <input type="checkbox" id="optPassword" onchange="toggleCustomPwInput()">
+                        <span>비밀번호로 보호하기</span>
                     </label>
-                    <div id="customPwWrap" style="display: none; margin: -4px 0 12px 26px;">
-                        <input type="text" id="optCustomPassword" maxlength="72" autocomplete="off" placeholder="비밀번호 직접 지정 (선택 · 비우면 자동 생성)" style="width: 100%; box-sizing: border-box; background: #1a1a1a; color: #e5e5e5; border: 1px solid rgba(84,84,88,0.4); border-radius: 8px; padding: 10px 12px; font-family: monospace; font-size: 14px; outline: none;">
+                    <div class="upload-password-wrap" id="customPwWrap" style="display: none;">
+                        <input class="upload-password-input" type="text" id="optCustomPassword" maxlength="72" autocomplete="off" placeholder="비밀번호 직접 지정 (선택 · 비우면 자동 생성)">
                     </div>
-                    <label style="display: flex; align-items: center; cursor: pointer;">
-                        <input type="radio" name="retentionPolicy" id="optOnce" style="margin-right: 10px; width: 16px; height: 16px; accent-color: #06b6d4;">
-                        <span style="font-size: 14px; color: #e5e5e5;">1회 열람 후 즉시 파기</span>
+                    <label class="upload-option">
+                        <input type="radio" name="retentionPolicy" id="optOnce">
+                        <span>1회 열람 후 즉시 파기</span>
                     </label>
-                    <label style="display: flex; align-items: center; cursor: pointer; margin-top: 12px;">
-                        <input type="radio" name="retentionPolicy" id="optWeek" style="margin-right: 10px; width: 16px; height: 16px; accent-color: #06b6d4;">
-                        <span style="font-size: 14px; color: #e5e5e5;">1주 보관 후 자동 삭제</span>
+                    <label class="upload-option">
+                        <input type="radio" name="retentionPolicy" id="optWeek">
+                        <span>1주 보관 후 자동 삭제</span>
                     </label>
                 </div>
 
@@ -524,7 +645,7 @@ curl --data-binary @secret.txt {{ .BaseURL }}/pw/12345/week</span>
             </div>
             
             <div class="modal-body" id="uploadResultBody" style="display: none;">
-                <div style="background: #1a1a1a; padding: 20px; border-radius: 8px; border: 1px solid rgba(84,84,88,0.4); margin-bottom: 20px;">
+                <div class="upload-result">
                     <p style="margin: 0 0 8px 0; font-size: 12px; color: #aaa;">공유 링크 (주소)</p>
                     <a id="resLink" href="#" target="_blank" style="color: #06b6d4; font-size: 18px; font-weight: bold; text-decoration: none; display: block; margin-bottom: 16px; word-break: break-all;"></a>
                     
