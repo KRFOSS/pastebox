@@ -7,7 +7,18 @@
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/variable/pretendardvariable-dynamic-subset.css">
     <style>
         :root {
-            --focus-ring: #06b6d4;
+            --bg: #0a0a0a;
+            --surface: #111213;
+            --surface-raised: #17191b;
+            --text: #ededed;
+            --text-muted: #8a9099;
+            --hairline: rgba(255, 255, 255, 0.08);
+            --hairline-strong: rgba(255, 255, 255, 0.16);
+            --accent: #5b8cb4;
+            --accent-hover: #6f9cc1;
+            --button-primary: #e8ecef;
+            --button-primary-hover: #ffffff;
+            --focus-ring: #5b8cb4;
         }
 
         html {
@@ -28,8 +39,8 @@
         }
 
         body {
-            background: #1a1a1a;
-            color: #e5e5e5;
+            background: var(--bg);
+            color: var(--text);
             margin: 0;
             padding: 0;
             position: relative;
@@ -43,7 +54,6 @@
             outline-offset: 2px;
         }
 
-        /* Navbar (ROKFOSS Main Style) */
         .navbar {
             position: fixed;
             top: 0;
@@ -51,11 +61,11 @@
             width: 100%;
             box-shadow: none !important;
             border: none !important;
-            padding-bottom: 40px !important;
             z-index: 1000;
-            background: linear-gradient( to bottom, rgba(0, 0, 0, 0.8) 0%, rgba(0, 0, 0, 0.65) 20%, rgba(0, 0, 0, 0.50) 40%, rgba(0, 0, 0, 0.35) 60%, rgba(0, 0, 0, 0.20) 75%, rgba(0, 0, 0, 0.10) 85%, rgba(0, 0, 0, 0.04) 93%, rgba(0, 0, 0, 0) 100% ) !important;
+            min-height: 76px;
+            padding: 18px 28px !important;
+            background: linear-gradient(180deg, rgba(0, 0, 0, 0.72) 0%, rgba(0, 0, 0, 0.28) 72%, rgba(0, 0, 0, 0) 100%) !important;
             transition: transform 0.4s cubic-bezier(0.4, 0, 0.2, 1), background 0.4s ease;
-            padding: 23px !important;
             transform: translateY(0);
         }
 
@@ -65,13 +75,21 @@
             align-items: center;
             flex-wrap: nowrap;
             width: 100%;
-            max-width: 1200px;
+            max-width: none;
             margin: 0 auto;
-            padding: 0 1rem;
+            padding: 0;
         }
 
         .navbar-brand img {
-            height: 40px;
+            height: 32px;
+            display: block;
+        }
+
+        .navbar.scrolled {
+            background: linear-gradient(180deg, rgba(8, 8, 9, 0.94), rgba(8, 8, 9, 0.80)) !important;
+            border-bottom: 1px solid var(--hairline) !important;
+            backdrop-filter: blur(12px);
+            -webkit-backdrop-filter: blur(12px);
         }
 
         .main-container {
@@ -80,80 +98,82 @@
             flex-direction: column;
             justify-content: center;
             align-items: center;
-            padding: 140px 20px 80px;
+            padding: 148px 24px 80px;
             box-sizing: border-box;
         }
 
         .content-wrapper {
-            max-width: 720px;
+            max-width: 840px;
             width: 100%;
             text-align: center;
         }
 
         h1 {
-            font-size: 48px;
+            font-size: clamp(2.25rem, 5vw, 3.25rem);
             font-weight: 700;
-            color: #fff;
-            margin-bottom: 0.5rem;
+            letter-spacing: -0.025em;
+            color: var(--text);
+            margin: 0 0 0.7rem;
         }
 
         .subtitle {
-            font-size: 20px;
-            color: #fff;
+            font-size: 1.05rem;
+            color: var(--text-muted);
             margin-bottom: 2rem;
         }
 
         .description {
             font-size: 16px;
             line-height: 1.5;
-            color: #e5e5e5;
-            margin-bottom: 2.5rem;
+            color: var(--text-muted);
+            margin: 0 auto 2.5rem;
+            max-width: 60ch;
         }
 
         .info-section {
-            background-color: #242424;
-            border-radius: 10px;
-            padding: 20px;
+            background: var(--surface);
+            border: 1px solid var(--hairline);
+            border-radius: 0;
+            padding: 6px 28px;
             margin-bottom: 32px;
             text-align: left;
         }
 
         .info-item {
-            display: flex;
-            justify-content: space-between;
+            display: grid;
+            grid-template-columns: minmax(180px, 0.38fr) minmax(0, 1fr);
+            gap: 24px;
             align-items: center;
-            padding: 16px 0;
-            border-bottom: 0.5px solid rgba(84, 84, 88, 0.4);
+            padding: 14px 0;
+            border-bottom: 1px solid var(--hairline);
         }
 
         .info-item:last-child {
             border-bottom: none;
-            padding-bottom: 0;
-        }
-
-        .info-item:first-child {
-            padding-top: 0;
         }
 
         .info-label {
             font-size: 15px;
             line-height: 20px;
-            color: rgba(235, 235, 245, 0.6);
-            font-weight: 500;
-            flex-shrink: 0;
-            margin-right: 16px;
+            color: var(--text-muted);
+            font-weight: 600;
+            display: block;
+            margin: 0;
         }
 
         .info-value {
             font-size: 14px;
-            line-height: 20px;
-            color: #ffffff;
+            line-height: 19px;
+            color: var(--text);
             font-weight: 400;
-            text-align: right;
+            text-align: left;
             font-family: ui-monospace, SFMono-Regular, SF Pro Icons, "SF Mono", Menlo, Monaco, Consolas, monospace;
             word-break: break-all;
             white-space: pre-wrap;
-            max-width: 75%;
+            max-width: none;
+            display: block;
+            padding: 0;
+            background: none;
         }
 
         .actions {
@@ -165,11 +185,12 @@
         }
 
         .button {
-            background-color: #242424;
-            color: #ffffff;
-            border: 1px solid rgba(84, 84, 88, 0.4);
-            border-radius: 10px;
-            padding: 12px 24px;
+            background: transparent;
+            color: var(--text);
+            border: 1px solid var(--hairline-strong);
+            border-radius: 0;
+            min-height: 46px;
+            padding: 12px 22px;
             font-size: 15px;
             font-weight: 600;
             text-decoration: none;
@@ -177,38 +198,41 @@
             align-items: center;
             justify-content: center;
             cursor: pointer;
-            transition: background-color 0.2s, transform 0.1s;
+            transition: border-color 0.18s ease, background 0.18s ease, color 0.18s ease;
             user-select: none;
         }
 
         .button:hover {
-            background-color: #2c2c2e;
+            background: rgba(255, 255, 255, 0.04);
+            border-color: var(--text);
         }
 
         .button:active {
-            transform: scale(0.98);
+            transform: none;
         }
 
         .button-primary {
-            background-color: #ffffff;
-            color: #000000;
-            border: none;
+            background: var(--button-primary);
+            color: #111315;
+            border-color: var(--button-primary);
         }
 
         .button-primary:hover {
-            background-color: rgba(255, 255, 255, 0.85);
+            background: var(--button-primary-hover);
+            border-color: var(--button-primary-hover);
         }
 
         .footer-text {
             font-size: 14px;
-            color: #aaa;
+            color: var(--text-muted);
             margin-top: 2rem;
             text-align: center;
         }
 
         @media (max-width: 768px) {
             .navbar {
-                padding: 12px 15px !important;
+                min-height: 60px;
+                padding: 14px 16px !important;
             }
 
             .navbar .container {
@@ -218,31 +242,34 @@
             }
 
             .navbar-brand img {
-                height: 28px;
+                height: 26px;
             }
 
             .main-container {
-                padding-top: 120px;
+                padding: 112px 16px 56px;
+            }
+
+            .info-section {
+                padding: 6px 16px;
             }
 
             .info-item {
+                display: flex;
                 flex-direction: column;
                 align-items: flex-start;
-                gap: 8px;
-                padding: 12px 0;
+                gap: 6px;
+                padding: 14px 0;
             }
 
             .info-label {
-                margin-right: 0;
+                margin: 0;
             }
 
             .info-value {
                 text-align: left;
                 max-width: 100%;
                 width: 100%;
-                background: rgba(0, 0, 0, 0.25);
-                padding: 10px;
-                border-radius: 6px;
+                padding: 0;
                 font-size: 13px;
                 white-space: nowrap;
                 overflow-x: auto;
@@ -254,6 +281,10 @@
             
             .button {
                 width: 100%;
+            }
+
+            .tos-modal .modal-content {
+                padding: 22px 20px;
             }
         }
 
@@ -294,6 +325,28 @@
 
         .modal-overlay.active .modal-content {
             transform: scale(1);
+        }
+
+        .tos-modal .modal-content {
+            background: var(--surface);
+            border: 1px solid var(--hairline);
+            border-radius: 0;
+            max-width: 640px;
+            padding: 28px;
+            box-shadow: none;
+        }
+
+        .tos-modal .modal-title {
+            padding-bottom: 14px;
+            margin-bottom: 18px;
+            border-bottom: 1px solid var(--hairline);
+            color: var(--text);
+        }
+
+        .tos-modal .modal-body {
+            margin-bottom: 24px;
+            color: var(--text-muted);
+            line-height: 1.7;
         }
 
         .modal-title {
@@ -359,24 +412,24 @@
             <div class="info-section">
                 <div class="info-item">
                     <span class="info-label">텍스트 업로드</span>
-                    <span class="info-value">echo "hello" | curl -X POST --data-binary @- {{ .BaseURL }}/</span>
+                    <span class="info-value">echo "hello" | curl --data-binary @- {{ .BaseURL }}</span>
                 </div>
                 <div class="info-item">
                     <span class="info-label">명령어 출력 업로드</span>
-                    <span class="info-value">ifconfig | curl -X POST --data-binary @- {{ .BaseURL }}/</span>
+                    <span class="info-value">ifconfig | curl --data-binary @- {{ .BaseURL }}</span>
                 </div>
                 <div class="info-item">
                     <span class="info-label">텍스트 파일 업로드</span>
-                    <span class="info-value">curl -v --data-binary @test.txt {{ .BaseURL }}/</span>
+                    <span class="info-value">curl -v --data-binary @test.txt {{ .BaseURL }}</span>
                 </div>
                 <div class="info-item">
                     <span class="info-label">비밀번호 보호 (무작위 발급)</span>
-                    <span class="info-value">curl -X POST --data-binary @secret.txt {{ .BaseURL }}/pw</span>
+                    <span class="info-value">curl --data-binary @secret.txt {{ .BaseURL }}/pw</span>
                 </div>
                 <div class="info-item">
                     <span class="info-label">비밀번호 직접 지정 (정책 조합 가능)</span>
-                    <span class="info-value">curl -X POST --data-binary @secret.txt {{ .BaseURL }}/pw/12345
-curl -X POST --data-binary @secret.txt {{ .BaseURL }}/pw/12345/week</span>
+                    <span class="info-value">curl --data-binary @secret.txt {{ .BaseURL }}/pw/12345
+curl --data-binary @secret.txt {{ .BaseURL }}/pw/12345/week</span>
                 </div>
                 <div class="info-item">
                     <span class="info-label">비밀번호 헤더 지정 (URL 노출 방지)</span>
@@ -384,11 +437,11 @@ curl -X POST --data-binary @secret.txt {{ .BaseURL }}/pw/12345/week</span>
                 </div>
                 <div class="info-item">
                     <span class="info-label">1회 열람 후 파기</span>
-                    <span class="info-value">ifconfig | curl -X POST --data-binary @- {{ .BaseURL }}/temp</span>
+                    <span class="info-value">ifconfig | curl --data-binary @- {{ .BaseURL }}/temp</span>
                 </div>
                 <div class="info-item">
                     <span class="info-label">1주 보관 후 자동 삭제</span>
-                    <span class="info-value">ifconfig | curl -X POST --data-binary @- {{ .BaseURL }}/week</span>
+                    <span class="info-value">ifconfig | curl --data-binary @- {{ .BaseURL }}/week</span>
                 </div>
 
                 <div class="info-item">
@@ -415,7 +468,7 @@ curl -X POST --data-binary @secret.txt {{ .BaseURL }}/pw/12345/week</span>
     </main>
 
     <!-- ToS Modal -->
-    <div class="modal-overlay" id="tosModal" onclick="if(event.target===this) closeToSModal()">
+    <div class="modal-overlay tos-modal" id="tosModal" onclick="if(event.target===this) closeToSModal()">
         <div class="modal-content">
             <h2 class="modal-title">서비스 이용 약관</h2>
             <div class="modal-body">
@@ -489,6 +542,18 @@ curl -X POST --data-binary @secret.txt {{ .BaseURL }}/pw/12345/week</span>
     </div>
 
     <script>
+        (function () {
+            const navbar = document.querySelector('.navbar');
+            if (!navbar) return;
+
+            const updateNavbar = () => {
+                navbar.classList.toggle('scrolled', window.scrollY > 40);
+            };
+
+            window.addEventListener('scroll', updateNavbar, { passive: true });
+            updateNavbar();
+        })();
+
         function openToSModal(e) {
             e.preventDefault();
             document.getElementById('tosModal').classList.add('active');
@@ -499,7 +564,7 @@ curl -X POST --data-binary @secret.txt {{ .BaseURL }}/pw/12345/week</span>
         }
 
         function copyExample(btn) {
-            const text = 'curl -v --data-binary @test.txt {{ .BaseURL }}/';
+            const text = 'curl -v --data-binary @test.txt {{ .BaseURL }}';
             navigator.clipboard.writeText(text).then(() => {
                 const originalText = btn.innerText;
                 btn.innerText = "복사 완료";
