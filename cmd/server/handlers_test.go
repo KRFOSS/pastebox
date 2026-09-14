@@ -82,6 +82,34 @@ func TestCurlUploadIsRenderedAsText(t *testing.T) {
 	}
 }
 
+func TestLegacyCurlUploadIsRenderedAsText(t *testing.T) {
+	app := newTestApp(t)
+	meta, _, _, err := app.store.Create(
+		strings.NewReader("legacy curl upload\n"),
+		"application/x-www-form-urlencoded",
+		false, "", "", 0,
+	)
+	if err != nil {
+		t.Fatalf("failed to create legacy paste: %v", err)
+	}
+
+	raw := httptest.NewRequest(http.MethodGet, "/"+meta.ID+"?raw=1", nil)
+	raw.Header.Set("User-Agent", "Mozilla/5.0")
+	raw.Header.Set("Accept", "text/html")
+	rawRec := httptest.NewRecorder()
+	app.handle(rawRec, raw)
+
+	if got := rawRec.Header().Get("Content-Type"); got != "text/plain; charset=utf-8" {
+		t.Fatalf("expected text raw response, got %q", got)
+	}
+	if got := rawRec.Header().Get("Content-Disposition"); got != "" {
+		t.Fatalf("expected no download disposition, got %q", got)
+	}
+	if got := rawRec.Body.String(); got != "legacy curl upload\n" {
+		t.Fatalf("unexpected raw body %q", got)
+	}
+}
+
 func TestUploadHandlerReturnsJSONForJSONRoute(t *testing.T) {
 	app := newTestApp(t)
 

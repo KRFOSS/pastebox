@@ -553,12 +553,7 @@ func (a *app) viewHandler(w http.ResponseWriter, r *http.Request, id string) {
 		contentType = "application/octet-stream"
 	}
 
-	if strings.HasPrefix(contentType, "text/") ||
-		strings.Contains(contentType, "json") ||
-		strings.Contains(contentType, "xml") ||
-		strings.Contains(contentType, "yaml") ||
-		strings.Contains(contentType, "javascript") ||
-		strings.Contains(contentType, "x-sh") {
+	if isRenderableTextContentType(contentType) {
 		w.Header().Set("Content-Type", "text/plain; charset=utf-8")
 		if browser {
 			content, err := io.ReadAll(entry.File)
@@ -582,6 +577,17 @@ func (a *app) viewHandler(w http.ResponseWriter, r *http.Request, id string) {
 	}
 
 	_, _ = io.Copy(w, entry.File)
+}
+
+func isRenderableTextContentType(contentType string) bool {
+	contentType = strings.ToLower(contentType)
+	return strings.HasPrefix(contentType, "text/") ||
+		strings.HasPrefix(contentType, "application/x-www-form-urlencoded") ||
+		strings.Contains(contentType, "json") ||
+		strings.Contains(contentType, "xml") ||
+		strings.Contains(contentType, "yaml") ||
+		strings.Contains(contentType, "javascript") ||
+		strings.Contains(contentType, "x-sh")
 }
 
 func isBrowserRequest(r *http.Request) bool {
