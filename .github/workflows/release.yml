@@ -50,6 +50,15 @@ jobs:
       - name: 레포지토리 코드 가져오기 (Checkout)
         uses: actions/checkout@v6
 
+      - name: Go 환경 설정
+        uses: actions/setup-go@v6
+        with:
+          go-version-file: go.mod
+          cache: true
+
+      - name: 테스트 실행
+        run: go test ./...
+
       - name: 소스코드 압축 파일 생성
         run: |
           # 1. 아카이브 도중 파일 변경 에러(tar: file changed)를 방지하기 위해 임시 폴더(/tmp)에 생성함.

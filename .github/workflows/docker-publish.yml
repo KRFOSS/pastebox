@@ -38,6 +38,15 @@ jobs:
       - name: 레포지토리 코드 가져오기 (Checkout)
         uses: actions/checkout@v6
 
+      - name: Go 환경 설정
+        uses: actions/setup-go@v6
+        with:
+          go-version-file: go.mod
+          cache: true
+
+      - name: 테스트 실행
+        run: go test ./...
+
       - name: cosign 설치
         if: github.event_name != 'pull_request'
         uses: sigstore/cosign-installer@v4.1.2
