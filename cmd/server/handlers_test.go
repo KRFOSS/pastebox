@@ -49,6 +49,39 @@ func TestUploadHandlerKeepsPlainTextResponse(t *testing.T) {
 	}
 }
 
+func TestCurlUploadIsRenderedAsText(t *testing.T) {
+	app := newTestApp(t)
+
+	upload := httptest.NewRequest(http.MethodPost, "/", strings.NewReader("hello from curl\n"))
+	upload.Header.Set("User-Agent", "curl/8.0.1")
+	upload.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+	upload.Host = "example.com"
+	uploadRec := httptest.NewRecorder()
+	app.handle(uploadRec, upload)
+
+	if uploadRec.Code != http.StatusOK {
+		t.Fatalf("expected upload status 200, got %d", uploadRec.Code)
+	}
+	url := strings.TrimPrefix(strings.SplitN(uploadRec.Body.String(), "\n", 2)[0], "주소: ")
+	id := strings.TrimPrefix(url, "http://example.com/")
+
+	raw := httptest.NewRequest(http.MethodGet, "/"+id+"?raw=1", nil)
+	raw.Header.Set("User-Agent", "Mozilla/5.0")
+	raw.Header.Set("Accept", "text/html")
+	rawRec := httptest.NewRecorder()
+	app.handle(rawRec, raw)
+
+	if got := rawRec.Header().Get("Content-Type"); got != "text/plain; charset=utf-8" {
+		t.Fatalf("expected text raw response, got %q", got)
+	}
+	if got := rawRec.Header().Get("Content-Disposition"); got != "" {
+		t.Fatalf("expected no download disposition, got %q", got)
+	}
+	if got := rawRec.Body.String(); got != "hello from curl\n" {
+		t.Fatalf("unexpected raw body %q", got)
+	}
+}
+
 func TestUploadHandlerReturnsJSONForJSONRoute(t *testing.T) {
 	app := newTestApp(t)
 

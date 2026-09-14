@@ -238,6 +238,13 @@ func (a *app) uploadHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	// curl --data-binary sends application/x-www-form-urlencoded by default.
+	// The body is stored as-is (it is not parsed as a form), so serve it as
+	// plain text; otherwise the paste viewer treats ?raw=1 as a download.
+	if strings.HasPrefix(strings.ToLower(contentType), "application/x-www-form-urlencoded") {
+		contentType = "text/plain; charset=utf-8"
+	}
+
 	reader = io.MultiReader(bytes.NewReader(buf[:n]), reader)
 
 	usePassword := strings.EqualFold(strings.TrimSpace(r.Header.Get("usepassword")), "true")
